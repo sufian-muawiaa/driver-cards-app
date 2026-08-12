@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل بطاقات السائقين</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f3d3e">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="بطاقات السائقين">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></noscript>
+<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --ink:#1c2321;
+    --steel:#0f3d3e;
+    --steel-2:#145c5e;
+    --asphalt:#0a2626;
+    --paper:#f4ede0;
+    --paper-2:#fffdf8;
+    --line:#e2d6bf;
+    --amber:#d97a34;
+    --amber-dark:#b2611f;
+    --red:#b8443a;
+    --green:#2f7a5c;
+    --muted:#7c8a86;
+    --shadow: 0 8px 24px rgba(10,38,38,.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Tajawal',sans-serif;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 40px),
+      var(--asphalt);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .num{ font-family:'JetBrains Mono', monospace; font-weight:700; direction:ltr; unicode-bidi:bidi-override; }
+
+  /* ---- Top bar ---- */
+  .topbar{
+    background: linear-gradient(180deg, var(--steel) 0%, var(--steel-2) 100%);
+    color:#fff;
+    padding:18px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow: var(--shadow);
+    position:sticky; top:0; z-index:50;
+    border-bottom:4px solid var(--amber);
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .topbar-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:14px;}
+  .brand .mark{
+    width:46px;height:46px;border-radius:12px;
+    background:transparent;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .brand h1{font-size:20px;margin:0;font-weight:900; letter-spacing:.3px;}
+  .brand p{margin:0;font-size:12px;opacity:.75;}
+
+  .tabs{display:flex; gap:6px;}
+  .tabs button{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    color:#fff; padding:10px 18px; border-radius:8px;
+    font-family:'Tajawal',sans-serif; font-weight:700; font-size:14px;
+    cursor:pointer; transition:.15s;
+  }
+  .tabs button:hover{background:rgba(255,255,255,.16);}
+  .tabs button.active{background:var(--amber); color:var(--steel); border-color:var(--amber);}
+
+  #sync-code-btn{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    color:#fff; padding:10px 16px; border-radius:8px;
+    font-family:'Tajawal',sans-serif; font-weight:700; font-size:13px;
+    cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  #sync-code-btn:hover{background:rgba(255,255,255,.16);}
+  #sync-code-btn.set{background:var(--amber); color:var(--steel); border-color:var(--amber);}
+
+  #exchange-rate-btn{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    color:#fff; padding:10px 16px; border-radius:8px;
+    font-family:'Tajawal',sans-serif; font-weight:700; font-size:13px;
+    cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  #exchange-rate-btn:hover{background:rgba(255,255,255,.16);}
+  #profit-settings-btn{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    color:#fff; padding:10px 16px; border-radius:8px;
+    font-family:'Tajawal',sans-serif; font-weight:700; font-size:13px;
+    cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  #profit-settings-btn:hover{background:rgba(255,255,255,.16);}
+  #profit-settings-btn.active{background:var(--amber); color:var(--steel); border-color:var(--amber);}
+  #exchange-rate-btn.set{background:var(--amber); color:var(--steel); border-color:var(--amber);}
+
+  main{max-width:1180px; margin:26px auto 60px; padding:0 20px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{
+    background:var(--paper-2);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    border:1px solid var(--line);
+    overflow:hidden;
+  }
+  .card + .card{margin-top:20px;}
+  .card-head{
+    background: linear-gradient(90deg, var(--amber) 0%, var(--amber-dark) 100%);
+    color:#fff; padding:14px 22px; font-weight:900; font-size:16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .card-body{padding:22px;}
+
+  label{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:6px;}
+  input, select, textarea{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:8px;
+    font-family:'Tajawal',sans-serif; font-size:14px; background:var(--paper);
+    color:var(--ink); transition:.15s;
+  }
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--amber); background:#fff;}
+  .grid{display:grid; gap:14px;}
+  .g2{grid-template-columns:1fr 1fr;}
+  .g3{grid-template-columns:1fr 1fr 1fr;}
+  .g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  @media(max-width:720px){ .g2,.g3,.g4{grid-template-columns:1fr;} }
+
+  fieldset{border:1.5px dashed var(--line); border-radius:10px; padding:16px; margin:0;}
+  legend{padding:0 8px; font-weight:900; color:var(--steel); font-size:14px;}
+
+  .items-row{
+    display:grid; grid-template-columns:2fr 1fr 1.2fr auto; gap:10px; align-items:end; margin-bottom:10px;
+  }
+  @media(max-width:720px){ .items-row{grid-template-columns:1fr;} }
+  .btn{
+    border:none; border-radius:8px; padding:10px 16px; font-family:'Tajawal',sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  .btn-amber{background:var(--amber); color:#fff;}
+  .btn-amber:hover{background:var(--amber-dark);}
+  .btn-steel{background:var(--steel); color:#fff;}
+  .btn-steel:hover{background:var(--steel-2);}
+  .btn-ghost{background:transparent; border:1.5px solid var(--line); color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--amber); color:var(--amber-dark);}
+  .btn-danger{background:#fbe9e7; color:var(--red);}
+  .btn-danger:hover{background:#f6d3ce;}
+  .btn-sm{padding:7px 10px; font-size:12px;}
+
+  /* Overlay / bottom sheet (used by cloud sync settings) */
+  .overlay{
+    position:fixed; inset:0; background:rgba(15,61,62,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:200;
+  }
+  .overlay.open{display:flex;}
+  .sheet{
+    background:var(--paper); width:100%; max-width:640px; max-height:92vh;
+    border-radius:18px 18px 0 0; overflow-y:auto; padding:18px 18px 28px;
+    animation:sheetup .2s ease-out;
+  }
+  @keyframes sheetup{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .sheet-head h2{margin:0; font-size:18px; color:var(--steel);}
+  .close-x{background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; padding:4px 8px;}
+  .helper-text{font-size:12.5px; color:var(--muted); line-height:1.7; margin:0 0 6px;}
+  .match-result{background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px;}
+  .btn-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .btn-primary{background:var(--amber); color:#fff;}
+  .btn-primary:hover{background:var(--amber-dark);}
+  .btn-outline{background:#fff; border:1.5px solid var(--line); color:var(--ink);}
+  .btn-outline:hover{border-color:var(--amber); color:var(--amber-dark);}
+  #cloudOverlay label{display:block; font-size:12.5px; font-weight:700; color:var(--steel); margin:14px 0 6px;}
+  .checkbox-row{display:flex; align-items:center; gap:8px;}
+  .checkbox-row input[type=checkbox]{width:auto;}
+  .checkbox-row label{display:inline; margin:0 !important;}
+  #cloudOverlay input[type=text], #cloudOverlay select{
+    width:100%; padding:11px 13px; border-radius:9px; border:1.5px solid var(--line);
+    font-family:'Tajawal',sans-serif; font-size:14px; background:#fff; color:var(--ink);
+  }
+  #cloudOverlay > .sheet > .btn{width:100%; margin-top:14px;}
+
+  .actions-row{display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;}
+
+  /* Archive */
+  .driver-tabs{display:flex; gap:8px; flex-wrap:wrap; padding:16px 22px 0;}
+  .driver-tabs button{
+    background:var(--paper); border:1.5px solid var(--line); border-radius:20px;
+    padding:8px 16px; font-family:'Tajawal',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .driver-tabs button.active{background:var(--steel); color:#fff; border-color:var(--steel);}
+  .driver-tabs button .count{
+    display:inline-block; margin-inline-start:6px; background:rgba(0,0,0,.12);
+    border-radius:10px; padding:1px 7px; font-size:11px;
+  }
+  .driver-tabs button.active .count{background:rgba(255,255,255,.25);}
+
+  .summary-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:10px; padding:18px 22px 0;}
+  @media(max-width:960px){ .summary-grid{grid-template-columns:repeat(3,1fr);} }
+  @media(max-width:600px){ .summary-grid{grid-template-columns:repeat(2,1fr);} }
+  .stat{
+    background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px;
+    text-align:center;
+  }
+  .stat .lbl{font-size:11px; color:var(--muted); font-weight:700; margin-bottom:4px;}
+  .stat .val{font-size:18px; font-weight:700;}
+  .stat.pos .val{color:var(--green);}
+  .stat.neg .val{color:var(--red);}
+  .stat.hi{background:linear-gradient(135deg, var(--amber) 0%, var(--amber-dark) 100%); border:none;}
+  .stat.hi .lbl{color:rgba(255,255,255,.85);}
+  .stat.hi .val{color:#fff; font-size:20px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    background:#efe9db; color:var(--steel); font-weight:800; padding:10px 8px;
+    border-bottom:2px solid var(--line); position:sticky; top:0; white-space:nowrap;
+  }
+  tbody td{padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tbody tr:hover{background:#fbf8f0;}
+  .tbl-wrap{overflow-x:auto; padding:0 22px 22px; margin-top:14px;}
+  .money-usd, .money-syp{display:block; font-family:'JetBrains Mono', monospace;}
+  .money-usd{font-weight:700; white-space:nowrap;}
+  .money-syp{font-size:10.5px; color:var(--muted); white-space:nowrap; margin-top:1px;}
+  .stat .money-usd{font-size:inherit; font-weight:inherit;}
+  .stat .money-syp{font-size:11px;}
+  .tag{
+    display:inline-block; padding:2px 9px; border-radius:12px; font-size:11px; font-weight:800;
+  }
+  .tag-light{background:#fdf1de; color:var(--amber-dark);}
+  .tag-heavy{background:#e9edf3; color:var(--steel);}
+  .tag-error{background:#fbe9e7; color:var(--red);}
+  .row-actions{display:flex; gap:6px;}
+  .empty{padding:40px 22px; text-align:center; color:var(--muted); font-weight:700;}
+
+  /* Search */
+  .search-bar{display:flex; gap:10px; padding:22px;}
+  .search-bar input{flex:1; font-size:15px; padding:12px 16px;}
+  .search-results{padding:0 22px 22px;}
+  mark{background:var(--amber); color:#fff; border-radius:3px; padding:0 2px;}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--steel); color:#fff; padding:12px 22px; border-radius:10px;
+    box-shadow:var(--shadow); font-weight:700; z-index:200; opacity:0; transition:.25s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
+
+  .hint{font-size:12px; color:var(--muted); margin-top:4px;}
+  .divider{height:1px; background:var(--line); margin:18px 0;}
+
+  /* ---- Login screen ---- */
+  #login-screen{
+    position:fixed; inset:0; z-index:9999;
+    background: linear-gradient(135deg, var(--asphalt) 0%, #0a1f1f 100%);
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; padding:24px;
+  }
+  #login-screen.hidden{display:none;}
+  .login-box{
+    background:var(--paper-2); border-radius:20px; padding:36px 28px;
+    width:100%; max-width:380px; box-shadow:0 24px 60px rgba(0,0,0,.4);
+    text-align:center;
+  }
+  .login-logo{
+    width:80px; height:80px; border-radius:18px; overflow:hidden;
+    margin:0 auto 18px; box-shadow:0 8px 24px rgba(0,0,0,.3);
+  }
+  .login-logo img{width:100%;height:100%;object-fit:cover;}
+  .login-box h2{font-size:22px;font-weight:900;color:var(--steel);margin:0 0 4px;}
+  .login-box p{font-size:13px;color:var(--muted);margin:0 0 28px;}
+  .login-box input[type=password]{
+    width:100%;padding:14px 16px;border:2px solid var(--line);border-radius:10px;
+    font-family:'Tajawal',sans-serif;font-size:16px;text-align:center;
+    letter-spacing:4px; background:var(--paper); color:var(--ink);
+    transition:.2s; margin-bottom:14px;
+  }
+  .login-box input[type=password]:focus{outline:none;border-color:var(--amber);}
+  .login-box .btn-login{
+    width:100%;padding:14px;border:none;border-radius:10px;
+    background:linear-gradient(135deg,var(--amber),var(--amber-dark));
+    color:#fff;font-family:'Tajawal',sans-serif;font-size:16px;font-weight:900;
+    cursor:pointer;transition:.2s;
+  }
+  .login-box .btn-login:active{transform:scale(.97);}
+  .login-error{
+    color:var(--red);font-size:13px;font-weight:700;
+    margin-top:10px;min-height:20px;
+  }
+  .login-hint{font-size:11px;color:var(--muted);margin-top:16px;}
+  @media print{
+    body{background:#fff !important;}
+    .topbar, .driver-tabs, .no-print, .search-bar{display:none !important;}
+    main{max-width:100%; margin:0; padding:0;}
+    .card{box-shadow:none; border:1px solid #999;}
+    .card-head{background:#eee !important; color:#000 !important;}
+    .view{display:none !important;}
+    .view.print-active{display:block !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAGI0lEQVR4nO3dvXLbOhRFYfhOKjd5G3fOy7vzA7m+BWY4GsaRAWz87AOsr44VEFgEaUmWXn6//0lAq/9WDwCxERAkBAQJAUFCQJAQECQEBAkBQUJAkBAQJAQECQFBQkCQEBAkBAQJAUFCQJAQECQEBAkBQUJAkBAQJAQECQFBQkCQEBAkBAQJAUFCQJAQECQEBAkBQUJAkPxaPQAXn+9fVf/+7eN10EhiOTeg2mKe//ixPZ0VkBhN4SMfFdMRAY3r5vl/d0JJOwc0uZsnA9i4pD0DWp7OTR7PlhltFZBbNzdbbkj7PA9kXs+jQEP90Q47UMT12OaiFjugiOk82iCjwAF1r6d8Ifv+15/vX3Ebeon4ZSu91q/XsrmNZ6Z4AYmrNXqRzIfXXbCAmpdn/sIEGqoiTEBB1yPosMvFCKhtGXzWIPr4nwgQUMPse079NgfyyD2g/d7ntdkRWQdUNdfmE32zzaH5vha2zRR/q2rAzk+4mwa0dz3ZHg05XsLKJytoOjehj9duBwo9m21WvQbXhV1AhbapJ4t7OF4BFZ5hcaf7icKDctuEjAI6uZ4sYkMuAVFPFq4hl4BKbF9PFuswLQIqOZ9iTauo5GBNNqH1AVHPt6I0tD4ghLY4ILafJ0JsQu470LH1ZP6HvzKgkrNn+Rm2lv8ULXsxdbP3VXUXZX7cL2GXz/evc3ajQEcaJqAs0My2CXeerLmE6XO03xUt6JxE/dv4DT6W4BJry7lZcAnrOF/hNvy/9Z2NXg9VzvEe6O3jdY/3Cz9XVX/tnExjF9A1TVVTFmsrqh3t45yMGVG72QENfXojREa16Zhvxl470LeT5T+Jhbpcs9w2oTC/heWJK1wAt9/RNv4zt6k7UJenOsLdGE2uZ/IhG+1A5XP39vFaPk0Nu9G/Hrx2dQelU3X4oxkFVKXqipbKPsjyx0cr/6Twja9ZN1430bU6XtGqlvz5Pz6nnjTztbAfp1WZSuXZAeVycBvztHSGTmYVlx1IPODmX/V7fe3c5KeVffatqPdA32r4VV8X5Z1fg2wVUFZ7fz3NZulkLpew7qxWy/alUN2kgJbsBybLtmQM0ybcYgcaOsULMxr6XzucG8kkoAkmT7fJ5jfBKQGliYt6SDrZQQHNcVQ9iYAgIiBICAgSAoKEgCAhIEgICJLjAhr9ssm4B/d0XEDoi4AgsQho8ps9Bl1oJl+/TN4xNykgt5uD7uPZ/gD/xWIHQlznBtTxHHXbfmY6N6DUaeFPrif5BLTqljDo32eZ3EGnmQHZnqlt71R0ftPqzIG57EDLVU26bTrzbfiHhc2uLJ5cIEjnxmgH8rmum7OaqKkBcfpOMHmSjXYgROQVkNXm7MltimYHxFVsqPnT67UDJb8zzIrh5NgFhFgWBNT3I07P4fO5iI/YgSBZExCbUC3P7SexA0HkGxCb0MV5KpYFxBNCHS2czJU7EHdCJWzvfjLfS1h2eEP+h784oJKzx38SByk58OV3Au47EMytD4hN6Fshtp/kEFCiob9EqSeZBFTokIZiHaZLQIXnU6zJbVB4gCbbT/IJKNFQwHqSVUDp7IYi1pPcAiq3WUNxD8cuoKpvYR46kmmqvmx16Ega2AWUKhsKnVHtV/UOHUwbx4BS5WQFbWiPr5c3DSjt3tAe9STngFJ9QyEyqh2ncz3JPKBUP33OGTWMzbye5B9QappEt4zaxuNfTwoRUGqdSoeMmscQop4U6AOm8oQ2LEb+kfnr0dxulHSyMAFlbx+vbQtz/dTo5RH3vFj1pHABJaGh7PFne61WrwtluHpSxICScDm7uT3CwldRIqaTvfx+/7N6DO2W3yN3EbeeFHQHuvTailYJnU4WO6AsYkYbpJPFeB6oRKAlCTTUH+2wA11KPil8oZ26uWwV0MXtorZlOtmeAWXLN6SNu7nsHNBlckkndHM5IqDL49L2jemoaB6dFdCj25Lv906dOc4N6IYg2uzzPBCWICBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAICEgSAgIEgKChIAgISBICAgSAoKEgCAhIEgICBICgoSAIPkfr3uccZPWvyQAAAAASUVORK5CYII=" alt="" style="width:100%;height:100%;object-fit:contain;"></div>
+    <div>
+      <h1>سجل بطاقات السائقين</h1>
+      <p>متابعة الرحلات، الأعطال، والمصاريف</p>
+    </div>
+  </div>
+  <div class="topbar-actions no-print">
+    <div class="tabs">
+      <button data-view="entry" class="active">➕ إدخال بيانات</button>
+      <button data-view="archive">🗂️ الأرشيف</button>
+      <button data-view="search">🔍 بحث</button>
+    </div>
+    <button id="sync-code-btn" title="الاتصال والمزامنة اللحظية بين الأجهزة">☁️ <span id="sync-code-badge">الاتصال والمزامنة</span></button>
+    <button id="exchange-rate-btn" title="سعر صرف الليرة السورية مقابل الدولار">💱 <span id="exchange-rate-badge">تعيين سعر الصرف</span></button>
+    <button id="profit-settings-btn" title="نسب توزيع الأرباح بين السائق والشركة والمعلم">⚙️ توزيع الأرباح</button>
+  </div>
+</div>
+
+<!-- CLOUD SYNC SETTINGS SHEET -->
+<div class="overlay" id="cloudOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>☁️ الاتصال والمزامنة اللحظية</h2>
+      <button class="close-x" onclick="closeSheet('cloudOverlay')">✕</button>
+    </div>
+    <p class="helper-text">تربط هذا الجهاز بقناة مزامنة لحظية مع بقية الأجهزة. اختر رمز القناة وصفتك، واضغط حفظ.</p>
+
+    <div id="cloud-status" class="match-result" style="margin-top:10px;">⚪ غير متصل — يعمل التطبيق محليًا فقط حاليًا</div>
+
+    <label>رمز القناة (نفس الرمز لكل من تريد ربطه بنفس المجموعة)</label>
+    <input type="text" id="cloud-channel-input" placeholder="اكتب رمزًا خاصًا بمجموعتك">
+    <div class="checkbox-row" style="margin-top:8px;">
+      <input type="checkbox" id="remember-channel-checkbox" checked>
+      <label for="remember-channel-checkbox" style="margin:0;">تذكر رمز القناة على هذا الجهاز</label>
+    </div>
+
+    <label>صفتك في هذا الجهاز</label>
+    <div class="btn-row">
+      <button class="btn btn-outline" id="role-employer-btn" onclick="setRoleChoice('employer')">👔 صاحب العمل</button>
+      <button class="btn btn-outline" id="role-driver-btn" onclick="setRoleChoice('driver')">🚚 سائق</button>
+    </div>
+
+    <div id="employer-pin-panel" style="display:none;">
+      <label>🔒 كلمة سر صاحب العمل (خاصة بك — لا تشاركها مع السائقين)</label>
+      <input type="password" id="cloud-employer-pin-input" placeholder="4 أحرف على الأقل" autocomplete="off">
+      <p class="helper-text">أول مرة تربط فيها هذا الرمز: تختار أي كلمة سر وتصير هي كلمة سر هذه القناة دائمًا. أي محاولة اتصال كـ"صاحب عمل" لاحقًا (من أي جهاز) لازم تدخل نفس الكلمة.</p>
+    </div>
+
+    <div id="employer-drivers-panel" style="display:none;">
+      <label>قائمة السائقين (تُشارك تلقائيًا مع كل الأجهزة على نفس القناة)</label>
+      <div class="btn-row">
+        <input type="text" id="new-driver-name-input" placeholder="اسم سائق جديد">
+        <input type="tel" id="new-driver-phone-input" placeholder="رقم الهاتف (اختياري)">
+        <button class="btn btn-steel" style="margin-top:0;" onclick="addDriverToChannel()">➕ إضافة</button>
+      </div>
+      <div id="drivers-chip-list" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;"></div>
+    </div>
+
+    <div id="driver-select-panel" style="display:none;">
+      <label>اختر اسمك (كما سجّله صاحب العمل)</label>
+      <div class="btn-row">
+        <select id="driver-name-select" style="flex:1;"><option value="">— اختر —</option></select>
+        <button class="btn btn-outline" style="margin-top:0;" onclick="fetchDriversList()">🔄 تحديث القائمة</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="connectCloudSync()">🔌 حفظ والاتصال</button>
+    <button class="btn btn-danger" onclick="disconnectCloudSync()">🔌 قطع الاتصال والعودة للوضع المحلي فقط</button>
+    <button class="btn btn-danger" onclick="wipeAllChannelData()">🗑️ حذف كل بيانات هذه القناة نهائيًا (سجلات + سائقين)</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ================= ENTRY VIEW ================= -->
+  <section id="view-entry" class="view active">
+    <div class="card">
+      <div class="card-head">بطاقة سائق — إدخال بيانات جديدة</div>
+      <div class="card-body">
+        <div class="grid g4">
+          <div>
+            <label>التاريخ</label>
+            <input type="date" id="f-date">
+          </div>
+          <div>
+            <label>اسم السائق</label>
+            <input type="text" id="f-driver" list="driver-list" placeholder="اكتب اسم السائق">
+            <datalist id="driver-list"></datalist>
+          </div>
+          <div>
+            <label>نوع الآلية</label>
+            <input type="text" id="f-vehicle" list="vehicle-list" placeholder="اكتب نوع الآلية">
+            <datalist id="vehicle-list"></datalist>
+          </div>
+          <div>
+            <label>نوع العمل</label>
+            <input type="text" id="f-worktype" list="worktype-list" placeholder="اكتب نوع العمل">
+            <datalist id="worktype-list"></datalist>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="grid g3">
+          <div>
+            <label>من (الوجهة)</label>
+            <input type="text" id="f-from" placeholder="اكتب نقطة الانطلاق">
+          </div>
+          <div>
+            <label>إلى (الوجهة)</label>
+            <input type="text" id="f-to" placeholder="اختياري">
+          </div>
+          <div>
+            <label>العمولة</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" step="0.01" id="f-commission" placeholder="0" style="flex:1;">
+              <select id="f-commission-currency" style="width:88px; flex:none;" onchange="updateCommissionHint()">
+                <option value="usd">$</option>
+                <option value="syp">ل.س</option>
+              </select>
+            </div>
+            <p class="hint" id="commission-hint" style="margin-top:4px;"></p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <fieldset>
+          <legend>💰 المصروف (وقود / مصروف السائق الشخصي أثناء الرحلة)</legend>
+          <div class="grid g2">
+            <div>
+              <label>نوع المصروف</label>
+              <input type="text" id="f-expdesc" placeholder="مازوت" value="مازوت">
+            </div>
+            <div>
+              <label>القيمة</label>
+              <div style="display:flex; gap:6px;">
+                <input type="number" step="0.01" id="f-expval" placeholder="0" style="flex:1;">
+                <select id="f-expval-currency" style="width:88px; flex:none;" onchange="updateExpenseHint()">
+                  <option value="usd">$</option>
+                  <option value="syp">ل.س</option>
+                </select>
+              </div>
+              <p class="hint" id="expense-hint" style="margin-top:4px;"></p>
+            </div>
+          </div>
+          <p class="hint">هذا المبلغ يُصنَّف تلقائيًا "خفيف" ويُخصم من المربح العام قبل القسمة على ثلاثة.</p>
+        </fieldset>
+
+        <div class="divider"></div>
+
+        <fieldset>
+          <legend>🔧 الأعطال</legend>
+          <div id="malf-list"></div>
+          <button class="btn btn-ghost btn-sm" id="add-malf" type="button">+ إضافة عطل آخر</button>
+          <p class="hint">
+            <span class="tag tag-light">خفيف</span> يُخصم من المربح العام (مثل رقعة دولاب) &nbsp;·&nbsp;
+            <span class="tag tag-heavy">ثقيل</span> يُسجَّل بعمود مستقل ولا يُخصم (مثل عطل محرك) &nbsp;·&nbsp;
+            <span class="tag tag-error">خطأ سائق</span> يُخصم من نصيب السائق وحده فقط (مثل انفجار دولاب بالرصيف)
+          </p>
+        </fieldset>
+
+        <div class="divider"></div>
+
+        <fieldset>
+          <legend>💳 التقابض والمحاسبة مع السائق</legend>
+          <label>هل تم السداد؟</label>
+          <select id="f-settlement-status" onchange="toggleSettlementAmount()">
+            <option value="unpaid">❌ لم يتم السداد بعد</option>
+            <option value="paid">✅ تم السداد بالكامل</option>
+            <option value="partial">🟡 سداد جزئي (دفع جزء وبقي عليه باقي)</option>
+          </select>
+          <div id="settlement-amount-wrap" style="display:none;">
+            <label>المبلغ المدفوع فعليًا</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" step="0.01" id="f-settlement-paid" placeholder="0" style="flex:1;">
+              <select id="f-settlement-paid-currency" style="width:88px; flex:none;" onchange="updateSettlementHint()">
+                <option value="usd">$</option>
+                <option value="syp">ل.س</option>
+              </select>
+            </div>
+            <p class="hint" id="settlement-hint" style="margin-top:4px;"></p>
+          </div>
+        </fieldset>
+
+        <div class="divider"></div>
+
+        <div>
+          <label>ملاحظات</label>
+          <textarea id="f-notes" rows="2" placeholder="اختياري"></textarea>
+        </div>
+
+        <div class="actions-row">
+          <button class="btn btn-amber" id="save-record">💾 حفظ وترحيل إلى الأرشيف</button>
+          <button class="btn btn-ghost" id="clear-form">تفريغ النموذج</button>
+          <button class="btn btn-ghost" id="cancel-edit" type="button" style="display:none;">✖️ إلغاء التعديل</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ARCHIVE VIEW ================= -->
+  <section id="view-archive" class="view">
+    <div class="card">
+      <div class="card-head">
+        <span id="archive-title">الأرشيف</span>
+        <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-steel btn-sm" id="print-btn">🖨️ طباعة كامل الأرشيف / PDF</button>
+          <button class="btn btn-ghost btn-sm" id="export-excel-btn" style="background:#fff;">📊 تصدير Excel</button>
+          <button class="btn btn-ghost btn-sm" id="export-backup-btn" style="background:#fff;">💾 نسخة احتياطية</button>
+          <button class="btn btn-ghost btn-sm" id="import-backup-btn" style="background:#fff;">📥 استيراد نسخة</button>
+          <button class="btn btn-danger btn-sm" id="wipe-local-btn">🗑️ حذف كل الأرشيف من هذا الجهاز</button>
+          <input type="file" id="import-backup-file" accept="application/json" style="display:none;">
+        </div>
+      </div>
+      <div class="driver-tabs no-print" id="driver-tabs"></div>
+      <div id="archive-content"></div>
+    </div>
+  </section>
+
+  <!-- ================= SEARCH VIEW ================= -->
+  <section id="view-search" class="view">
+    <div class="card">
+      <div class="card-head">بحث في جميع السجلات</div>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="ابحث عن اسم سائق، وجهة، نوع عطل، ملاحظة... أي شيء">
+      </div>
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- PROFIT DISTRIBUTION SETTINGS SHEET -->
+<div class="overlay" id="profitOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>⚙️ إعدادات توزيع الأرباح</h2>
+      <button class="close-x" onclick="closeSheet('profitOverlay')">✕</button>
+    </div>
+    <p class="helper-text">حدّد نسبة كل طرف من صافي المربح. المجموع الكلي يجب أن يساوي 100%. تُطبَّق هذه النسب فوراً على كل الحسابات في الأرشيف والفواتير.</p>
+
+    <div id="profit-split-rows" style="display:flex; flex-direction:column; gap:10px; margin:14px 0;"></div>
+
+    <button class="btn btn-outline" onclick="addProfitParty()">➕ إضافة طرف جديد</button>
+
+    <div id="profit-total-indicator" style="margin-top:14px; padding:10px 14px; border-radius:10px; font-weight:700; font-size:14px; text-align:center;">
+      المجموع: 0%
+    </div>
+
+    <button class="btn btn-primary" onclick="applyProfitSettings()">✅ تطبيق التوزيع على التطبيق</button>
+    <button class="btn btn-outline" onclick="resetProfitSettings()">🔄 إعادة الضبط الافتراضي (3 أطراف متساوية)</button>
+  </div>
+</div>
+
+<div class="no-print" style="text-align:center; padding:14px 10px 24px; font-size:11.5px; color:var(--muted); opacity:.75;">
+  الإصدار 2.0 — بناء 2026/07/31<br>
+  Abu sufian
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- State & persistence ---------------- */
+let records = [];
+let malfCounter = 0;
+let currentDriverTab = null;
+let editingId = null;
+
+const STORAGE_KEY = 'driver_records_v1';
+const EXCHANGE_RATE_KEY = 'exchange_rate_v1';
+const PROFIT_SETTINGS_KEY = 'profit_settings_v1';
+
+// الإعداد الافتراضي: 3 أطراف متساوية (السائق، الشركة، المعلم)
+const DEFAULT_PROFIT_PARTIES = [
+  {name:'السائق',   pct:33.33},
+  {name:'الشركة',  pct:33.33},
+  {name:'المعلم',  pct:33.34},
+];
+let profitParties = DEFAULT_PROFIT_PARTIES.map(p=>({...p}));
+let exchangeRate = 0; // 0 = لم يُعيَّن بعد (يعرض الدولار فقط)
+const HAS_CLOUD_STORAGE = (typeof window.storage !== 'undefined');
+
+// يعمل بطريقتين: داخل معاينة Claude يستخدم التخزين السحابي المدمج،
+// وعند تحميل الملف وفتحه مباشرة في أي متصفح أو تطبيق (بدون إنترنت)
+// يستخدم تلقائيًا التخزين المحلي في نفس الجهاز — هذا ما يضمن بقاء
+// البيانات محفوظة نهائيًا حتى بعد إغلاق التطبيق بالكامل، وأن أي جهاز
+// جديد يبدأ فارغًا تمامًا لأن كل جهاز له مخزون localStorage خاص به.
+async function storageGet(key){
+  if(HAS_CLOUD_STORAGE){
+    try{
+      const res = await window.storage.get(key, false);
+      return res ? res.value : null;
+    }catch(e){ return null; }
+  }
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+// يرجع true/false لنعرف بشكل مؤكد إن كان الحفظ نجح فعليًا أم لا،
+// بدل الاكتفاء بتسجيل الخطأ بصمت بالـ console (حيث لن يراه المستخدم أبدًا)
+async function storageSet(key, value){
+  if(HAS_CLOUD_STORAGE){
+    try{ await window.storage.set(key, value, false); return true; }
+    catch(e){ console.error(e); return false; }
+  }
+  try{ localStorage.setItem(key, value); return true; }
+  catch(e){
+    console.error(e);
+    return false;
+  }
+}
+
+const LAST_BACKUP_KEY = 'last_backup_at_v1';
+const LAST_BACKUP_REMINDER_KEY = 'last_backup_reminder_v1';
+
+async function loadRecords(){
+  const raw = await storageGet(STORAGE_KEY);
+  if(!raw){
+    records = [];
+  } else {
+    try{
+      records = JSON.parse(raw);
+      if(!Array.isArray(records)) records = [];
+    }catch(e){
+      // بيانات تالفة بدل مسحها بصمت: نحتفظ بنسخة منها تحت مفتاح طوارئ
+      // ونُنبّه المستخدم بدل فقدان الأرشيف دون علمه
+      console.error('Corrupted records data, keeping raw backup', e);
+      await storageSet(STORAGE_KEY + '_corrupted_backup_' + Date.now(), raw);
+      records = [];
+      setTimeout(()=>{
+        showToast('⚠️ تعذّرت قراءة الأرشيف المحفوظ — تم حفظ نسخة خام منه، تواصل مع الدعم');
+      }, 1200);
+    }
+  }
+  refreshDatalists();
+  renderArchive();
+  checkBackupReminder();
+}
+
+async function saveRecords(){
+  const ok = await storageSet(STORAGE_KEY, JSON.stringify(records));
+  if(!ok){
+    showToast('⚠️ فشل حفظ البيانات على هذا الجهاز! خذ نسخة احتياطية فورًا قبل إغلاق التطبيق');
+  }
+  return ok;
+}
+
+// يذكّر بأخذ نسخة احتياطية لو مرّ أكثر من 7 أيام بدون نسخة، بدون إزعاج (مرة كل يوم كحد أقصى)
+async function checkBackupReminder(){
+  if(!records || records.length === 0) return;
+  const now = Date.now();
+  const lastBackupRaw = await storageGet(LAST_BACKUP_KEY);
+  const lastBackup = lastBackupRaw ? parseInt(lastBackupRaw) : 0;
+  const daysSinceBackup = (now - lastBackup) / (1000*60*60*24);
+  if(lastBackup && daysSinceBackup < 7) return;
+
+  const lastReminderRaw = await storageGet(LAST_BACKUP_REMINDER_KEY);
+  const lastReminder = lastReminderRaw ? parseInt(lastReminderRaw) : 0;
+  const hoursSinceReminder = (now - lastReminder) / (1000*60*60);
+  if(lastReminder && hoursSinceReminder < 24) return;
+
+  await storageSet(LAST_BACKUP_REMINDER_KEY, String(now));
+  setTimeout(()=>{
+    showToast('💾 تذكير: مرّ وقت طويل بدون نسخة احتياطية — يُفضّل أخذ نسخة من تبويب الأرشيف');
+  }, 1500);
+}
+
+/* ================= Cloud Sync (real-time, Firebase Firestore) =================
+   يعمل التطبيق بالكامل محليًا افتراضيًا (بدون أي إعداد). هذا القسم اختياري بالكامل:
+   لو تم إعداده، تصير كل التغييرات تُبث لحظيًا لكل الأجهزة على نفس "رمز القناة"
+   وقت توفر الإنترنت، وتُخزَّن محليًا وتُزامَن تلقائيًا لاحقًا لو صار انقطاع مؤقت. */
+const CLOUD_CONFIG_KEY = 'cloud_config_v1';
+const REMEMBERED_CHANNEL_KEY = 'remembered_channel_v1';
+let cloudConfig = null; // {firebaseConfig, channelCode, role, driverName}
+let cloudDb = null;
+let cloudUnsub = null;
+let cloudDriversUnsub = null;
+let channelDrivers = [];
+
+function closeSheet(id){
+  document.getElementById(id).classList.remove('open');
+}
+
+document.getElementById('sync-code-btn').addEventListener('click', async ()=>{
+  document.getElementById('cloudOverlay').classList.add('open');
+  const remembered = await storageGet(REMEMBERED_CHANNEL_KEY);
+  document.getElementById('cloud-channel-input').value = (cloudConfig && cloudConfig.channelCode) || remembered || '';
+  document.getElementById('remember-channel-checkbox').checked = !!remembered || !cloudConfig;
+  if(cloudConfig){
+    setRoleChoice(cloudConfig.role || 'employer', false);
+    if(cloudConfig.role==='driver' && cloudConfig.driverName){
+      setTimeout(()=>{
+        const sel = document.getElementById('driver-name-select');
+        if(sel) sel.value = cloudConfig.driverName;
+      }, 300);
+    }
+  }
+});
+
+function setRoleChoice(role, autoFetch){
+  document.getElementById('role-employer-btn').classList.toggle('btn-primary', role==='employer');
+  document.getElementById('role-employer-btn').classList.toggle('btn-outline', role!=='employer');
+  document.getElementById('role-driver-btn').classList.toggle('btn-primary', role==='driver');
+  document.getElementById('role-driver-btn').classList.toggle('btn-outline', role!=='driver');
+  document.getElementById('employer-pin-panel').style.display = role==='employer' ? 'block' : 'none';
+  document.getElementById('employer-drivers-panel').style.display = role==='employer' ? 'block' : 'none';
+  document.getElementById('driver-select-panel').style.display = role==='driver' ? 'block' : 'none';
+  window._pendingRole = role;
+  if(role==='driver' && autoFetch!==false) fetchDriversList();
+}
+
+// إعدادات Firebase ثابتة مضمّنة بالتطبيق — لا حاجة لأي مستخدم لإدخالها يدويًا
+const HARDCODED_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAAF9DVUjhko1jbzZRHlExWLWdQhRBmY0E",
+  projectId: "othman-22a69",
+  authDomain: "othman-22a69.firebaseapp.com"
+};
+function getConfigFromInputs(){
+  return HARDCODED_FIREBASE_CONFIG;
+}
+
+async function getTempFirebaseApp(config){
+  if(!window.firebase){
+    throw new Error('مكتبة Firebase لم تُحمَّل — تأكد من الاتصال بالإنترنت أول مرة فقط');
+  }
+  const appName = 'temp-' + Date.now();
+  const app = firebase.initializeApp(config, appName);
+  return app.firestore();
+}
+
+// يتحقق من كلمة سر صاحب العمل لهذه القناة، أو يسجّلها كأول مرة إن لم توجد بعد
+async function verifyOrClaimEmployerPin(channelCode){
+  const enteredPin = (document.getElementById('cloud-employer-pin-input').value || '').trim();
+  if(enteredPin.length < 4){
+    throw new Error('أدخل كلمة سر صاحب العمل (4 أحرف على الأقل)');
+  }
+  const config = getConfigFromInputs();
+  const db = await getTempFirebaseApp(config);
+  const channelRef = db.collection('channels').doc(channelCode);
+  const snap = await channelRef.get();
+  if(snap.exists && snap.data().ownerPin){
+    if(snap.data().ownerPin !== enteredPin){
+      throw new Error('كلمة سر صاحب العمل غير صحيحة لهذه القناة');
+    }
+  } else {
+    await channelRef.set({ownerPin: enteredPin}, {merge:true});
+  }
+}
+
+async function fetchDriversList(){
+  try{
+    const channelCode = document.getElementById('cloud-channel-input').value.trim();
+    if(!channelCode){
+      showToast('⚠️ أدخل رمز القناة أول');
+      return;
+    }
+    const config = getConfigFromInputs();
+    const db = await getTempFirebaseApp(config);
+    const snap = await db.collection('channels').doc(channelCode).collection('drivers').get();
+    channelDrivers = snap.docs.map(d=>d.data().name);
+    const sel = document.getElementById('driver-name-select');
+    sel.innerHTML = '<option value="">— اختر —</option>' + channelDrivers.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    showToast('✅ تم تحديث قائمة السائقين (' + channelDrivers.length + ')');
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ تعذر جلب القائمة: تحقق من الاتصال بالإنترنت');
+  }
+}
+
+async function addDriverToChannel(){
+  const nameInput = document.getElementById('new-driver-name-input');
+  const phoneInput = document.getElementById('new-driver-phone-input');
+  const name = nameInput.value.trim();
+  const phone = phoneInput.value.trim();
+  if(!name) return;
+  try{
+    const channelCode = document.getElementById('cloud-channel-input').value.trim();
+    if(!channelCode){ showToast('⚠️ أدخل رمز القناة أول'); return; }
+    await verifyOrClaimEmployerPin(channelCode);
+    const config = getConfigFromInputs();
+    const db = await getTempFirebaseApp(config);
+    const driversRef = db.collection('channels').doc(channelCode).collection('drivers');
+    const existing = await driversRef.get();
+    const normalizedNew = name.replace(/\s+/g,' ').toLowerCase();
+    const dup = existing.docs.some(d => (d.data().name||'').replace(/\s+/g,' ').toLowerCase() === normalizedNew);
+    if(dup){
+      showToast('⚠️ يوجد سائق بنفس الاسم مسجّل بالفعل بهذه القناة');
+      return;
+    }
+    await driversRef.add({name, phone: phone||'', addedAt: Date.now()});
+    nameInput.value = '';
+    phoneInput.value = '';
+    renderDriversChipList();
+    showToast('✅ تمت إضافة السائق: ' + name);
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ ' + (e.message || 'تعذرت الإضافة'));
+  }
+}
+
+async function renderDriversChipList(){
+  try{
+    const channelCode = document.getElementById('cloud-channel-input').value.trim();
+    if(!channelCode) return;
+    const config = getConfigFromInputs();
+    const db = await getTempFirebaseApp(config);
+    const snap = await db.collection('channels').doc(channelCode).collection('drivers').get();
+    const list = document.getElementById('drivers-chip-list');
+    list.innerHTML = snap.docs.map(d=>{
+      const data = d.data();
+      const phoneLinks = data.phone
+        ? `<a href="tel:${escapeHtml(data.phone)}" title="اتصال" style="text-decoration:none;">📞</a><a href="https://wa.me/${escapeHtml(data.phone.replace(/[^0-9]/g,''))}" target="_blank" title="واتساب" style="text-decoration:none;">💬</a>`
+        : '';
+      return `<span style="background:#EDEBE4;padding:6px 10px;border-radius:20px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">${escapeHtml(data.name)}${phoneLinks}<button onclick="removeDriverFromChannel('${d.id}')" style="border:none;background:none;color:var(--danger);cursor:pointer;font-weight:900;">✕</button></span>`;
+    }).join('');
+  }catch(e){ console.error(e); }
+}
+
+async function removeDriverFromChannel(docId){
+  try{
+    const channelCode = document.getElementById('cloud-channel-input').value.trim();
+    await verifyOrClaimEmployerPin(channelCode);
+    const config = getConfigFromInputs();
+    const db = await getTempFirebaseApp(config);
+    await db.collection('channels').doc(channelCode).collection('drivers').doc(docId).delete();
+    renderDriversChipList();
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ ' + (e.message || 'تعذر الحذف'));
+  }
+}
+
+async function connectCloudSync(){
+  try{
+    const channelCode = document.getElementById('cloud-channel-input').value.trim();
+    const role = window._pendingRole || 'employer';
+    if(!channelCode){
+      showToast('⚠️ أدخل رمز القناة');
+      return;
+    }
+    let driverName = '';
+    if(role==='driver'){
+      driverName = document.getElementById('driver-name-select').value;
+      if(!driverName){
+        showToast('⚠️ اختر اسمك من القائمة أول');
+        return;
+      }
+    }
+    if(role==='employer'){
+      await verifyOrClaimEmployerPin(channelCode);
+    }
+    const firebaseConfigObj = getConfigFromInputs();
+    cloudConfig = {firebaseConfig: firebaseConfigObj, channelCode, role, driverName};
+    await storageSet(CLOUD_CONFIG_KEY, JSON.stringify(cloudConfig));
+    const remember = document.getElementById('remember-channel-checkbox').checked;
+    await storageSet(REMEMBERED_CHANNEL_KEY, remember ? channelCode : '');
+    await startCloudSync();
+    closeSheet('cloudOverlay');
+    showToast('✅ تم الاتصال — المزامنة اللحظية مفعّلة الآن');
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ تعذر الاتصال: ' + (e.message || 'تأكد من صحة الإعدادات'));
+  }
+}
+
+async function disconnectCloudSync(){
+  if(cloudUnsub) cloudUnsub();
+  if(cloudDriversUnsub) cloudDriversUnsub();
+  cloudUnsub = null; cloudDriversUnsub = null; cloudDb = null; cloudConfig = null;
+  await storageSet(CLOUD_CONFIG_KEY, '');
+  updateSyncCodeBadge();
+  closeSheet('cloudOverlay');
+  renderArchive();
+  showToast('🔌 تم قطع الاتصال — التطبيق يعمل محليًا فقط الآن');
+}
+
+// يمسح كل السجلات وكل أسماء السائقين لقناة معيّنة نهائيًا (محليًا + من Firestore)
+// محمي بكلمة سر صاحب العمل لتفادي أي حذف بالخطأ من طرف سائق
+async function wipeAllChannelData(){
+  const channelCode = document.getElementById('cloud-channel-input').value.trim();
+  if(!channelCode){
+    showToast('⚠️ أدخل رمز القناة أولاً بالمربع أعلاه');
+    return;
+  }
+  if(window._pendingRole !== 'employer'){
+    showToast('⚠️ اختر "صاحب العمل" أولاً لإظهار خانة كلمة السر');
+    return;
+  }
+  if(!confirm('سيتم حذف كل الفواتير وكل أسماء السائقين المرتبطة برمز القناة "' + channelCode + '" نهائيًا من كل الأجهزة. هل أنت متأكد؟')){
+    return;
+  }
+  try{
+    await verifyOrClaimEmployerPin(channelCode);
+    const config = getConfigFromInputs();
+    const db = await getTempFirebaseApp(config);
+    const recordsSnap = await db.collection('channels').doc(channelCode).collection('records').get();
+    const batch1 = db.batch();
+    recordsSnap.docs.forEach(d => batch1.delete(d.ref));
+    await batch1.commit();
+
+    const driversSnap = await db.collection('channels').doc(channelCode).collection('drivers').get();
+    const batch2 = db.batch();
+    driversSnap.docs.forEach(d => batch2.delete(d.ref));
+    await batch2.commit();
+
+    // لو كان هذا الجهاز متصلًا بنفس القناة، امسح نسخته المحلية أيضًا
+    if(cloudConfig && cloudConfig.channelCode === channelCode){
+      records = [];
+      await saveRecords();
+      renderArchive();
+    }
+    if(document.getElementById('drivers-chip-list')) document.getElementById('drivers-chip-list').innerHTML = '';
+    showToast('🗑️ تم حذف كل بيانات القناة "' + channelCode + '" نهائيًا من كل الأجهزة');
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ ' + (e.message || 'تعذر الحذف'));
+  }
+}
+
+async function loadCloudConfig(){
+  const raw = await storageGet(CLOUD_CONFIG_KEY);
+  if(raw){
+    try{ cloudConfig = JSON.parse(raw); }catch(e){ cloudConfig = null; }
+  }
+  updateSyncCodeBadge();
+  if(cloudConfig) await startCloudSync();
+}
+
+async function migrateLocalRecordsToCloud(channelRef){
+  try{
+    const existingSnap = await channelRef.get({source:'server'}).catch(()=>channelRef.get());
+    const existingIds = new Set(existingSnap.docs.map(d=>d.id));
+    const toMigrate = records.filter(r=>
+      r && r.id && !existingIds.has(r.id) &&
+      (cloudConfig.role==='employer' || r.driver===cloudConfig.driverName)
+    );
+    if(toMigrate.length===0) return;
+    const batch = cloudDb.batch();
+    toMigrate.forEach(r=>{ batch.set(channelRef.doc(r.id), r); });
+    await batch.commit();
+    showToast('☁️ تم رفع ' + toMigrate.length + ' سجل محلي كان محفوظًا على هذا الجهاز إلى القناة السحابية');
+  }catch(e){
+    // لو فشل الرفع (مثلاً بلا إنترنت)، لا نلمس البيانات المحلية إطلاقًا — تبقى محفوظة كما هي
+    console.error('migration to cloud failed, local data kept intact', e);
+  }
+}
+
+async function startCloudSync(){
+  if(!cloudConfig || !window.firebase) return;
+  try{
+    if(!firebase.apps.find(a=>a.name==='main')){
+      firebase.initializeApp(cloudConfig.firebaseConfig, 'main');
+    }
+    const app = firebase.apps.find(a=>a.name==='main');
+    cloudDb = app.firestore();
+    try{ await cloudDb.enablePersistence({synchronizeTabs:true}); }catch(e){ /* قد تكون مفعّلة بالفعل */ }
+
+    const channelRef = cloudDb.collection('channels').doc(cloudConfig.channelCode).collection('records');
+    const query = cloudConfig.role==='driver' ? channelRef.where('driver','==',cloudConfig.driverName) : channelRef;
+
+    // حماية من فقدان البيانات: قبل بدء الاستماع اللحظي، نرفع أي سجلات محفوظة محليًا
+    // على هذا الجهاز ولا توجد بعد في القناة السحابية (مثلاً أول اتصال لقناة جديدة/فارغة).
+    // بدون هذه الخطوة، أول استجابة فارغة من Firestore كانت ستمسح بيانات الجهاز المحلية فورًا.
+    await migrateLocalRecordsToCloud(channelRef);
+
+    if(cloudUnsub) cloudUnsub();
+    cloudUnsub = query.onSnapshot(async (snap)=>{
+      const cloudRecords = snap.docs.map(d=>({...d.data(), id: d.id}));
+      records = cloudRecords;
+      await saveRecords();
+      refreshDatalists();
+      renderArchive();
+      document.getElementById('cloud-status').textContent = '🟢 متصل — المزامنة اللحظية مفعّلة (' + (cloudConfig.role==='employer'?'صاحب العمل':'سائق: '+cloudConfig.driverName) + ')';
+      applyDriverRoleLock();
+    }, (err)=>{
+      console.error('cloud sync error', err);
+      document.getElementById('cloud-status').textContent = '🟠 يعمل محليًا حاليًا — سيُعاد الاتصال تلقائيًا عند توفر الإنترنت';
+    });
+
+    if(cloudConfig.role==='employer'){
+      renderDriversChipList();
+    }
+    updateSyncCodeBadge();
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function updateSyncCodeBadge(){
+  const badge = document.getElementById('sync-code-badge');
+  const btn = document.getElementById('sync-code-btn');
+  if(cloudConfig){
+    badge.textContent = cloudConfig.channelCode + (cloudConfig.role==='driver' ? (' • '+cloudConfig.driverName) : ' • صاحب العمل');
+    btn.classList.add('set');
+  } else {
+    badge.textContent = 'الاتصال والمزامنة';
+    btn.classList.remove('set');
+  }
+}
+
+// كل تعديل محلي (إضافة/تحديث/حذف) يُدفع أيضًا لقناة السحابة إن كانت مفعّلة
+async function pushRecordToCloud(record){
+  if(!cloudDb || !cloudConfig) return;
+  try{
+    await cloudDb.collection('channels').doc(cloudConfig.channelCode).collection('records').doc(record.id).set(record);
+  }catch(e){ console.error('cloud push failed (will retry automatically when online)', e); }
+}
+async function deleteRecordFromCloud(id){
+  if(!cloudDb || !cloudConfig) return;
+  try{
+    await cloudDb.collection('channels').doc(cloudConfig.channelCode).collection('records').doc(id).delete();
+  }catch(e){ console.error('cloud delete failed', e); }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ---------------- Navigation ---------------- */
+document.querySelectorAll('.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'archive') renderArchive();
+    if(btn.dataset.view === 'search') renderSearch('');
+  });
+});
+
+/* ---------------- Malfunction rows in form ---------------- */
+function addMalfRow(prefill){
+  const id = 'm' + (malfCounter++);
+  const wrap = document.createElement('div');
+  wrap.className = 'items-row';
+  wrap.dataset.id = id;
+  wrap.innerHTML = `
+    <div>
+      <label>وصف العطل</label>
+      <input type="text" class="malf-desc" placeholder="اكتب وصف العطل" value="${prefill?.desc||''}">
+    </div>
+    <div>
+      <label>القيمة</label>
+      <div style="display:flex; gap:6px;">
+        <input type="number" step="0.01" class="malf-val" placeholder="0" value="${prefill?.value||''}" style="flex:1;">
+        <select class="malf-currency" style="width:80px; flex:none;" onchange="updateMalfHint(this)">
+          <option value="usd">$</option>
+          <option value="syp">ل.س</option>
+        </select>
+      </div>
+      <p class="hint malf-hint" style="margin-top:4px;"></p>
+    </div>
+    <div>
+      <label>التصنيف</label>
+      <select class="malf-type">
+        <option value="light">خفيف</option>
+        <option value="heavy">ثقيل</option>
+        <option value="error">خطأ سائق</option>
+      </select>
+    </div>
+    <button class="btn btn-danger btn-sm" type="button" onclick="this.closest('.items-row').remove()">حذف</button>
+  `;
+  document.getElementById('malf-list').appendChild(wrap);
+  if(prefill?.type){
+    wrap.querySelector('.malf-type').value = prefill.type;
+  }
+  wrap.querySelector('.malf-val').addEventListener('input', (e)=>updateMalfHint(e.target));
+}
+document.getElementById('add-malf').addEventListener('click', ()=>addMalfRow());
+addMalfRow(); // start with one row
+
+// تحويل حي لعرض معادل القيمة أثناء الكتابة، لكل من المصروف وكل صف عطل على حدة
+function updateExpenseHint(){
+  const currency = document.getElementById('f-expval-currency').value;
+  const raw = parseFloat(document.getElementById('f-expval').value) || 0;
+  const hintEl = document.getElementById('expense-hint');
+  if(currency === 'syp'){
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+  } else {
+    hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
+  }
+}
+document.getElementById('f-expval').addEventListener('input', updateExpenseHint);
+
+function updateMalfHint(selectOrInput){
+  const row = selectOrInput.closest('.items-row');
+  const currency = row.querySelector('.malf-currency').value;
+  const raw = parseFloat(row.querySelector('.malf-val').value) || 0;
+  const hintEl = row.querySelector('.malf-hint');
+  if(currency === 'syp'){
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+  } else {
+    hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
+  }
+}
+
+function updateSaveButtonUI(){
+  const btn = document.getElementById('save-record');
+  const cancelBtn = document.getElementById('cancel-edit');
+  if(editingId){
+    btn.textContent = '💾 حفظ التعديلات';
+    cancelBtn.style.display = 'inline-block';
+  }else{
+    btn.textContent = '💾 حفظ وترحيل إلى الأرشيف';
+    cancelBtn.style.display = 'none';
+  }
+}
+
+function clearForm(){
+  ['f-date','f-driver','f-vehicle','f-worktype','f-from','f-to','f-commission','f-expval','f-notes','f-settlement-paid']
+    .forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-expdesc').value = 'مازوت';
+  document.getElementById('malf-list').innerHTML = '';
+  addMalfRow();
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('f-settlement-status').value = 'unpaid';
+  toggleSettlementAmount();
+  document.getElementById('f-settlement-paid-currency').value = 'usd';
+  updateSettlementHint();
+  document.getElementById('f-commission-currency').value = 'usd';
+  updateCommissionHint();
+  document.getElementById('f-expval-currency').value = 'usd';
+  updateExpenseHint();
+  editingId = null;
+  updateSaveButtonUI();
+  applyDriverRoleLock();
+}
+// يعرض تحويلاً حيًا أثناء الكتابة: لو اختار المستخدم إدخال العمولة بالليرة، يوريه كم تعادل بالدولار (والعكس)
+function updateCommissionHint(){
+  const currency = document.getElementById('f-commission-currency').value;
+  const raw = parseFloat(document.getElementById('f-commission').value) || 0;
+  const hintEl = document.getElementById('commission-hint');
+  if(currency === 'syp'){
+    if(exchangeRate > 0){
+      hintEl.textContent = raw > 0 ? ('≈ ' + fmt(raw/exchangeRate) + '$ (حسب سعر الصرف الحالي)') : 'أدخل المبلغ بالليرة السورية';
+    } else {
+      hintEl.textContent = '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة) لإدخال العمولة بالليرة';
+    }
+  } else {
+    hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
+  }
+}
+document.getElementById('f-commission').addEventListener('input', updateCommissionHint);
+function toggleSettlementAmount(){
+  const status = document.getElementById('f-settlement-status').value;
+  document.getElementById('settlement-amount-wrap').style.display = status==='partial' ? 'block' : 'none';
+}
+function updateSettlementHint(){
+  const currency = document.getElementById('f-settlement-paid-currency').value;
+  const raw = parseFloat(document.getElementById('f-settlement-paid').value) || 0;
+  const hintEl = document.getElementById('settlement-hint');
+  if(currency === 'syp'){
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+  } else {
+    hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
+  }
+}
+document.getElementById('f-settlement-paid').addEventListener('input', updateSettlementHint);
+function applyDriverRoleLock(){
+  const driverInput = document.getElementById('f-driver');
+  if(cloudConfig && cloudConfig.role==='driver' && cloudConfig.driverName){
+    driverInput.value = cloudConfig.driverName;
+    driverInput.readOnly = true;
+    driverInput.style.background = '#EDEBE4';
+  } else {
+    driverInput.readOnly = false;
+    driverInput.style.background = '';
+  }
+}
+document.getElementById('clear-form').addEventListener('click', clearForm);
+document.getElementById('cancel-edit').addEventListener('click', clearForm);
+clearForm();
+
+function loadRecordIntoForm(id){
+  const r = records.find(x=>x.id===id);
+  if(!r) return;
+  if(cloudConfig && cloudConfig.role==='driver' && r.driver !== cloudConfig.driverName){
+    showToast('⚠️ لا يمكنك تعديل سجلات سائق آخر');
+    return;
+  }
+  document.getElementById('f-date').value = r.date || '';
+  document.getElementById('f-driver').value = r.driver || '';
+  document.getElementById('f-vehicle').value = r.vehicle || '';
+  document.getElementById('f-worktype').value = r.workType || '';
+  document.getElementById('f-from').value = r.from || '';
+  document.getElementById('f-to').value = r.to || '';
+  document.getElementById('f-commission').value = r.commission || '';
+  document.getElementById('f-commission-currency').value = 'usd';
+  updateCommissionHint();
+  document.getElementById('f-expdesc').value = r.expenseDesc || 'مازوت';
+  document.getElementById('f-expval').value = r.expenseValue || '';
+  document.getElementById('f-expval-currency').value = 'usd';
+  updateExpenseHint();
+  document.getElementById('f-notes').value = r.notes || '';
+  document.getElementById('f-settlement-status').value = (r.settlement && r.settlement.status) || 'unpaid';
+  document.getElementById('f-settlement-paid').value = (r.settlement && r.settlement.paidAmount) || '';
+  document.getElementById('f-settlement-paid-currency').value = 'usd';
+  updateSettlementHint();
+  toggleSettlementAmount();
+  document.getElementById('malf-list').innerHTML = '';
+  if(r.malfunctions && r.malfunctions.length){
+    r.malfunctions.forEach(m=>addMalfRow(m));
+  }else{
+    addMalfRow();
+  }
+  editingId = id;
+  updateSaveButtonUI();
+  document.querySelector('.tabs button[data-view="entry"]').click();
+  window.scrollTo({top:0, behavior:'smooth'});
+  showToast('✏️ جاري تعديل سجل بتاريخ ' + (r.date||''));
+}
+
+/* ---------------- Save record ---------------- */
+document.getElementById('save-record').addEventListener('click', async ()=>{
+  let driver = document.getElementById('f-driver').value.trim();
+  if(cloudConfig && cloudConfig.role==='driver' && cloudConfig.driverName){
+    driver = cloudConfig.driverName; // لا يمكن للسائق الحفظ باسم غير اسمه المسجّل
+  }
+  if(!driver){
+    showToast('⚠️ الرجاء إدخال اسم السائق');
+    document.getElementById('f-driver').focus();
+    return;
+  }
+  const malfunctions = [];
+  let malfCurrencyError = false;
+  document.querySelectorAll('#malf-list .items-row').forEach(row=>{
+    const desc = row.querySelector('.malf-desc').value.trim();
+    const rawVal = parseFloat(row.querySelector('.malf-val').value) || 0;
+    const currency = row.querySelector('.malf-currency').value;
+    const type = row.querySelector('.malf-type').value;
+    if(currency === 'syp' && rawVal > 0 && exchangeRate <= 0){
+      malfCurrencyError = true;
+    }
+    const val = (currency === 'syp' && exchangeRate > 0) ? (rawVal / exchangeRate) : rawVal;
+    if(desc || rawVal){
+      malfunctions.push({desc: desc || '(بدون وصف)', value: val, type});
+    }
+  });
+  if(malfCurrencyError){
+    showToast('⚠️ عيّن سعر الصرف أولاً (زر 💱 بأعلى الصفحة) قبل إدخال قيمة عطل بالليرة');
+    return;
+  }
+
+  const commissionCurrency = document.getElementById('f-commission-currency').value;
+  const commissionRaw = parseFloat(document.getElementById('f-commission').value) || 0;
+  if(commissionCurrency === 'syp' && commissionRaw > 0 && exchangeRate <= 0){
+    showToast('⚠️ عيّن سعر الصرف أولاً (زر 💱 بأعلى الصفحة) قبل إدخال العمولة بالليرة');
+    return;
+  }
+  const commissionUsd = commissionCurrency === 'syp' ? (commissionRaw / exchangeRate) : commissionRaw;
+
+  const expenseCurrency = document.getElementById('f-expval-currency').value;
+  const expenseRaw = parseFloat(document.getElementById('f-expval').value) || 0;
+  if(expenseCurrency === 'syp' && expenseRaw > 0 && exchangeRate <= 0){
+    showToast('⚠️ عيّن سعر الصرف أولاً (زر 💱 بأعلى الصفحة) قبل إدخال المصروف بالليرة');
+    return;
+  }
+  const expenseUsd = expenseCurrency === 'syp' ? (expenseRaw / exchangeRate) : expenseRaw;
+
+  const settlementStatus = document.getElementById('f-settlement-status').value;
+  const settlementPaidCurrency = document.getElementById('f-settlement-paid-currency').value;
+  const settlementPaidRaw = settlementStatus==='partial' ? (parseFloat(document.getElementById('f-settlement-paid').value) || 0) : 0;
+  if(settlementStatus==='partial' && settlementPaidCurrency==='syp' && settlementPaidRaw>0 && exchangeRate<=0){
+    showToast('⚠️ عيّن سعر الصرف أولاً (زر 💱 بأعلى الصفحة) قبل إدخال المبلغ المدفوع بالليرة');
+    return;
+  }
+  const settlementPaid = (settlementPaidCurrency==='syp' && exchangeRate>0) ? (settlementPaidRaw/exchangeRate) : settlementPaidRaw;
+
+  const record = {
+    id: editingId || ('r' + Date.now() + Math.random().toString(36).slice(2,7)),
+    date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
+    driver,
+    vehicle: document.getElementById('f-vehicle').value.trim(),
+    from: document.getElementById('f-from').value.trim(),
+    to: document.getElementById('f-to').value.trim(),
+    workType: document.getElementById('f-worktype').value.trim(),
+    commission: commissionUsd,
+    expenseDesc: document.getElementById('f-expdesc').value.trim() || 'مازوت',
+    expenseValue: expenseUsd,
+    malfunctions,
+    notes: document.getElementById('f-notes').value.trim(),
+    settlement: {status: settlementStatus, paidAmount: settlementPaid},
+    createdAt: Date.now()
+  };
+
+  const wasEditing = !!editingId;
+  if(editingId){
+    const idx = records.findIndex(x=>x.id===editingId);
+    if(idx>-1){
+      record.createdAt = records[idx].createdAt;
+      records[idx] = record;
+    }
+    editingId = null;
+  }else{
+    records.push(record);
+  }
+
+  const saved = await saveRecords();
+  if(saved){
+    showToast(wasEditing ? ('✅ تم تحديث سجل: ' + driver) : ('✅ تم الحفظ والترحيل إلى أرشيف: ' + driver));
+  }
+  // لو فشل الحفظ، تظهر رسالة التحذير تلقائيًا من داخل saveRecords() نفسها —
+  // لا نعرض رسالة "تم الحفظ" المُطمئنة في هذه الحالة حتى لا يظن المستخدم خطأً أن بياناته آمنة
+  await pushRecordToCloud(record);
+  refreshDatalists();
+  currentDriverTab = driver;
+  clearForm();
+});
+
+/* ---------------- Datalists ---------------- */
+function refreshDatalists(){
+  const drivers = [...new Set(records.map(r=>r.driver).filter(Boolean))];
+  const vehicles = [...new Set(records.map(r=>r.vehicle).filter(Boolean))];
+  const worktypes = [...new Set(records.map(r=>r.workType).filter(Boolean))];
+  document.getElementById('driver-list').innerHTML = drivers.map(d=>`<option value="${escapeHtml(d)}">`).join('');
+  document.getElementById('vehicle-list').innerHTML = vehicles.map(v=>`<option value="${escapeHtml(v)}">`).join('');
+  document.getElementById('worktype-list').innerHTML = worktypes.map(w=>`<option value="${escapeHtml(w)}">`).join('');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function loadExchangeRate(){
+  const raw = await storageGet(EXCHANGE_RATE_KEY);
+  exchangeRate = raw ? parseFloat(raw) : 0;
+  updateExchangeRateBadge();
+}
+function updateExchangeRateBadge(){
+  const badge = document.getElementById('exchange-rate-badge');
+  const btn = document.getElementById('exchange-rate-btn');
+  if(exchangeRate > 0){
+    badge.textContent = '1$ = ' + exchangeRate.toLocaleString('en-US') + ' ل.س';
+    btn.classList.add('set');
+  } else {
+    badge.textContent = 'تعيين سعر الصرف';
+    btn.classList.remove('set');
+  }
+}
+document.getElementById('exchange-rate-btn').addEventListener('click', async ()=>{
+  const val = prompt('كم سعر صرف الدولار الواحد بالليرة السورية اليوم؟ (اتركه فارغًا لإخفاء الليرة والاكتفاء بالدولار)', exchangeRate>0?exchangeRate:'');
+  if(val===null) return;
+  const num = parseFloat(val);
+  exchangeRate = (val.trim()==='' || isNaN(num) || num<=0) ? 0 : num;
+  await storageSet(EXCHANGE_RATE_KEY, String(exchangeRate));
+  updateExchangeRateBadge();
+  renderArchive();
+  showToast(exchangeRate>0 ? ('✅ تم تعيين سعر الصرف: 1$ = ' + exchangeRate.toLocaleString('en-US') + ' ل.س') : '✅ تم إخفاء الليرة السورية');
+});
+
+/* ================= Profit Distribution Settings ================= */
+async function loadProfitSettings(){
+  const raw = await storageGet(PROFIT_SETTINGS_KEY);
+  if(raw){
+    try{ profitParties = JSON.parse(raw); }catch(e){}
+  }
+  updateProfitBtn();
+}
+async function saveProfitSettings(){
+  await storageSet(PROFIT_SETTINGS_KEY, JSON.stringify(profitParties));
+}
+function updateProfitBtn(){
+  const btn = document.getElementById('profit-settings-btn');
+  if(!btn) return;
+  const isDefault = profitParties.length===3 &&
+    Math.abs(profitParties[0].pct-33.33)<0.1 &&
+    Math.abs(profitParties[1].pct-33.33)<0.1 &&
+    Math.abs(profitParties[2].pct-33.34)<0.1;
+  btn.classList.toggle('active', !isDefault);
+}
+
+document.getElementById('profit-settings-btn').addEventListener('click', ()=>{
+  renderProfitRows();
+  document.getElementById('profitOverlay').classList.add('open');
+});
+
+function renderProfitRows(){
+  const container = document.getElementById('profit-split-rows');
+  container.innerHTML = profitParties.map((p,i)=>`
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="text" value="${escapeHtml(p.name)}" placeholder="اسم الطرف"
+        style="flex:1; padding:10px 12px; border-radius:8px; border:1.5px solid var(--line); font-family:'Tajawal',sans-serif; font-size:14px;"
+        onchange="profitParties[${i}].name=this.value">
+      <input type="number" value="${p.pct}" min="0" max="100" step="0.01" placeholder="%"
+        style="width:80px; padding:10px 12px; border-radius:8px; border:1.5px solid var(--line); font-family:'Tajawal',sans-serif; font-size:14px;"
+        oninput="profitParties[${i}].pct=parseFloat(this.value)||0; updateProfitTotal()">
+      <span style="font-size:13px; color:var(--muted);">%</span>
+      ${i>0?`<button onclick="removeProfitParty(${i})" style="background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:4px;">✕</button>`:'<span style="width:28px;"></span>'}
+    </div>
+  `).join('');
+  updateProfitTotal();
+}
+
+function updateProfitTotal(){
+  const total = profitParties.reduce((s,p)=>s+(parseFloat(p.pct)||0),0);
+  const ind = document.getElementById('profit-total-indicator');
+  const ok = Math.abs(total-100)<0.1;
+  ind.textContent = 'المجموع: ' + total.toFixed(2) + '%' + (ok ? ' ✅' : ' ⚠️ يجب أن يكون 100%');
+  ind.style.background = ok ? '#e3f5e8' : '#fbe9e7';
+  ind.style.color = ok ? '#1e7d3d' : '#b03a2e';
+}
+
+function addProfitParty(){
+  profitParties.push({name:'طرف جديد', pct:0});
+  renderProfitRows();
+}
+
+function removeProfitParty(i){
+  if(profitParties.length<=1){ showToast('⚠️ يجب أن يبقى طرف واحد على الأقل'); return; }
+  profitParties.splice(i,1);
+  renderProfitRows();
+}
+
+async function applyProfitSettings(){
+  const total = profitParties.reduce((s,p)=>s+(parseFloat(p.pct)||0),0);
+  if(Math.abs(total-100)>0.1){
+    showToast('⚠️ مجموع النسب يجب أن يساوي 100% بالضبط — الحالي: ' + total.toFixed(2) + '%');
+    return;
+  }
+  if(!profitParties[0] || !profitParties[0].name.trim()){
+    showToast('⚠️ الطرف الأول (السائق) يجب أن يكون له اسم');
+    return;
+  }
+  await saveProfitSettings();
+  updateProfitBtn();
+  closeSheet('profitOverlay');
+  renderArchive();
+  showToast('✅ تم تطبيق توزيع الأرباح الجديد على التطبيق بالكامل');
+}
+
+async function resetProfitSettings(){
+  if(!confirm('إعادة الضبط الافتراضي (3 أطراف متساوية: السائق، الشركة، المعلم)؟')) return;
+  profitParties = DEFAULT_PROFIT_PARTIES.map(p=>({...p}));
+  await saveProfitSettings();
+  renderProfitRows();
+  updateProfitBtn();
+  renderArchive();
+  showToast('✅ تم إعادة الضبط الافتراضي');
+}
+
+function fmt(n){
+  return (Math.round(n*100)/100).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+// عرض مضغوط واحترافي بسطرين: الدولار بالأعلى (بارز) والليرة السورية أسفله (صغيرة وخافتة)
+// يُستخدم داخل خلايا الجداول ومربعات الملخص فقط، حتى لا يتضخم عرض الجدول
+function fmtCell(n){
+  const usd = fmt(n);
+  if(exchangeRate > 0){
+    const syp = Math.round(n*exchangeRate).toLocaleString('en-US');
+    return '<span class="money-usd">' + usd + '$</span><span class="money-syp">' + syp + ' ل.س</span>';
+  }
+  return '<span class="money-usd">' + usd + '$</span>';
+}
+
+// شارة حالة التقابض/السداد مع السائق لعرضها بالجدول والفاتورة
+function settlementBadge(record, driverShare){
+  const s = (record && record.settlement) || {status:'unpaid', paidAmount:0};
+  if(s.status === 'paid'){
+    return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">✅ مدفوع بالكامل</span>';
+  }
+  if(s.status === 'partial'){
+    const remaining = (driverShare||0) - (s.paidAmount||0);
+    return '<span style="background:#fff6d8;color:#8a6d00;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;">🟡 دفع ' + fmt(s.paidAmount||0) + '$' + (exchangeRate>0?(' ('+Math.round((s.paidAmount||0)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '<br>المتبقي ' + fmt(remaining) + '$' + (exchangeRate>0?(' ('+Math.round(remaining*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span>';
+  }
+  return '<span style="background:#fbe9e7;color:#b03a2e;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ غير مدفوع</span>';
+}
+
+/* ---------------- Archive rendering ---------------- */
+// يحسب نصيب كل طرف من قائمة الأطراف المُعدَّة بإعدادات التوزيع
+// الطرف الأول دائمًا = السائق (نُخصم منه أخطاؤه)، والباقي = شركة/معلم/غيره (نُخصم منهم الأعطال الثقيلة)
+function splitNet(netForSplit, totalHeavy, totalError){
+  const shares = profitParties.map(p=>({
+    name: p.name,
+    pct: p.pct,
+    raw: netForSplit * (p.pct/100)
+  }));
+  // الطرف الأول = السائق
+  const driverRaw = shares[0] ? shares[0].raw : 0;
+  const driverFinalShare = driverRaw - totalError;
+  // باقي الأطراف يُخصم منهم الأعطال الثقيلة مقسومةً بعددهم
+  const othersCount = shares.length - 1;
+  const heavyPerOther = othersCount > 0 ? totalHeavy / othersCount : totalHeavy;
+  const otherShares = shares.slice(1).map(s=>({...s, final: s.raw - heavyPerOther}));
+  // حصة "الشركة والمعلم" = مجموع حصص كل الأطراف غير السائق (بعد خصم الأعطال الثقيلة)
+  const companyShare = otherShares.reduce((sum,s)=>sum+s.final, 0);
+  return {shares, driverFinalShare, companyShare, otherShares};
+}
+
+function computeDriverStats(driverRecords){
+  let totalCommission=0, totalExpense=0, totalLight=0, totalHeavy=0, totalError=0;
+  driverRecords.forEach(r=>{
+    totalCommission += r.commission||0;
+    totalExpense += r.expenseValue||0;
+    (r.malfunctions||[]).forEach(m=>{
+      if(m.type==='light') totalLight += m.value;
+      else if(m.type==='heavy') totalHeavy += m.value;
+      else if(m.type==='error') totalError += m.value;
+    });
+  });
+  const netForSplit = totalCommission - totalExpense - totalLight;
+  const perPartner = netForSplit / Math.max(profitParties.length, 1);
+  const {driverFinalShare, companyShare, shares} = splitNet(netForSplit, totalHeavy, totalError);
+  return {totalCommission, totalExpense, totalLight, totalHeavy, totalError, netForSplit, perPartner, driverFinalShare, companyShare, shares};
+}
+
+function computeRecordStats(record){
+  let light=0, error=0, heavy=0;
+  (record.malfunctions||[]).forEach(m=>{
+    if(m.type==='light') light += m.value;
+    else if(m.type==='error') error += m.value;
+    else if(m.type==='heavy') heavy += m.value;
+  });
+  const invoiceNet = (record.commission||0) - (record.expenseValue||0) - light;
+  const {driverFinalShare: driverShare, companyShare} = splitNet(invoiceNet, heavy, error);
+  return {invoiceNet, driverShare, companyShare};
+}
+
+function renderArchive(){
+  let drivers = [...new Set(records.map(r=>r.driver))];
+  if(cloudConfig && cloudConfig.role==='driver'){
+    // السائق يرى أرشيفه فقط مهما كانت البيانات المحلية — خصوصية إضافية بجانب فلترة الاستعلام السحابي
+    drivers = drivers.filter(d=>d===cloudConfig.driverName);
+  }
+  const tabsEl = document.getElementById('driver-tabs');
+  const contentEl = document.getElementById('archive-content');
+  const titleEl = document.getElementById('archive-title');
+
+  if(drivers.length===0){
+    tabsEl.innerHTML = '';
+    const msg = (cloudConfig && cloudConfig.role==='driver')
+      ? 'لا توجد رحلات مسجلة باسمك بعد. ابدأ بإدخال بيانات من تبويب "إدخال بيانات".'
+      : 'لا توجد سجلات مؤرشفة بعد. ابدأ بإدخال بيانات من تبويب "إدخال بيانات".';
+    contentEl.innerHTML = '<div class="empty">' + msg + '</div>';
+    titleEl.textContent = 'الأرشيف';
+    return;
+  }
+  if(!currentDriverTab || !drivers.includes(currentDriverTab)){
+    currentDriverTab = drivers[0];
+  }
+
+  const showTabs = drivers.length > 1;
+  tabsEl.style.display = showTabs ? 'flex' : 'none';
+  tabsEl.innerHTML = showTabs ? drivers.map(d=>{
+    const count = records.filter(r=>r.driver===d).length;
+    return `<button data-driver="${escapeHtml(d)}" class="${d===currentDriverTab?'active':''}">${escapeHtml(d)}<span class="count">${count}</span></button>`;
+  }).join('') : '';
+
+  tabsEl.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      currentDriverTab = btn.dataset.driver;
+      renderArchive();
+    });
+  });
+
+  titleEl.textContent = 'أرشيف السائق: ' + currentDriverTab;
+  renderDriverContent(currentDriverTab, contentEl);
+}
+
+function malfTag(type){
+  if(type==='light') return '<span class="tag tag-light">خفيف</span>';
+  if(type==='heavy') return '<span class="tag tag-heavy">ثقيل</span>';
+  return '<span class="tag tag-error">خطأ سائق</span>';
+}
+
+function renderDriverContent(driver, contentEl){
+  const list = records.filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
+  const s = computeDriverStats(list);
+
+  const summaryHtml = `
+    <div class="summary-grid">
+      <div class="stat"><div class="lbl">مجموع العمولة</div><div class="val num">${fmtCell(s.totalCommission)}</div></div>
+      <div class="stat neg"><div class="lbl">مجموع المصروف (خفيف)</div><div class="val num">-${fmtCell(s.totalExpense+s.totalLight)}</div></div>
+      <div class="stat"><div class="lbl">أعطال ثقيلة (لا تُخصم)</div><div class="val num">${fmtCell(s.totalHeavy)}</div></div>
+      <div class="stat neg"><div class="lbl">أخطاء السائق</div><div class="val num">-${fmtCell(s.totalError)}</div></div>
+      <div class="stat ${s.netForSplit>=0?'pos':'neg'}"><div class="lbl">صافي المربح العام</div><div class="val num">${fmtCell(s.netForSplit)}</div></div>
+      <div class="stat hi"><div class="lbl">نصيب السائق النهائي</div><div class="val num">${fmtCell(s.driverFinalShare)}</div></div>
+      <div class="stat hi"><div class="lbl">حصة الشركة والمعلم</div><div class="val num">${fmtCell(s.companyShare)}</div></div>
+    </div>
+    <p class="hint" style="padding:6px 22px 0;">توزيع الأرباح: ${profitParties.map(p=>`<strong>${escapeHtml(p.name)}</strong> ${p.pct}%`).join(' + ')} — صافي المربح ${fmt(s.netForSplit)}$ → نصيب السائق <strong class="num">${fmt(s.driverFinalShare)}$</strong> (بعد خصم أخطائه ${fmt(s.totalError)}$) — حصة باقي الأطراف <strong class="num">${fmt(s.companyShare)}$</strong> (بعد خصم الأعطال الثقيلة ${fmt(s.totalHeavy)}$)</p>
+  `;
+
+  if(list.length===0){
+    contentEl.innerHTML = summaryHtml + '<div class="empty">لا توجد سجلات.</div>';
+    return;
+  }
+
+  const rows = list.map(r=>{
+    const malfHtml = (r.malfunctions||[]).length
+      ? r.malfunctions.map(m=>`${escapeHtml(m.desc)} <span class="num">(${fmtCell(m.value)})</span> ${malfTag(m.type)}`).join('<br>')
+      : '—';
+    const rs = computeRecordStats(r);
+    return `
+      <tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.from||'')}${r.to?' ← '+escapeHtml(r.to):''}</td>
+        <td>${escapeHtml(r.workType||'—')}</td>
+        <td>${escapeHtml(r.vehicle||'—')}</td>
+        <td class="num">${fmtCell(r.commission)}</td>
+        <td>${escapeHtml(r.expenseDesc||'')} <span class="num">${fmtCell(r.expenseValue)}</span></td>
+        <td>${malfHtml}</td>
+        <td class="num">${fmtCell(rs.invoiceNet)}</td>
+        <td class="num">${fmtCell(rs.driverShare)}</td>
+        <td class="num">${fmtCell(rs.companyShare)}</td>
+        <td>${settlementBadge(r, rs.driverShare)}</td>
+        <td>${escapeHtml(r.notes||'')}</td>
+        <td class="no-print row-actions">
+          <button class="btn btn-steel btn-sm" onclick="loadRecordIntoForm('${r.id}')">✏️ تعديل</button>
+          <button class="btn btn-ghost btn-sm" onclick="printSingleRecord('${r.id}')">🖨️ طباعة/PDF</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">حذف</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  contentEl.innerHTML = summaryHtml + `
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>التاريخ</th><th>الوجهة</th><th>نوع العمل</th><th>الآلية</th>
+            <th>العمولة</th><th>المصروف</th><th>الأعطال</th>
+            <th>صافي مربح الفاتورة</th><th>نصيب السائق</th><th>حصة الشركة والمعلم</th>
+            <th>حالة السداد</th>
+            <th>ملاحظات</th><th class="no-print"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function deleteRecord(id){
+  const rec = records.find(r=>r.id===id);
+  if(cloudConfig && cloudConfig.role==='driver' && rec && rec.driver !== cloudConfig.driverName){
+    showToast('⚠️ لا يمكنك حذف سجلات سائق آخر');
+    return;
+  }
+  if(!confirm('هل تريد حذف هذا السجل نهائيًا؟')) return;
+  records = records.filter(r=>r.id!==id);
+  await saveRecords();
+  await deleteRecordFromCloud(id);
+  renderArchive();
+  showToast('🗑️ تم حذف السجل');
+}
+
+function typeLabel(type){
+  return type==='light' ? 'خفيف' : (type==='heavy' ? 'ثقيل' : 'خطأ سائق');
+}
+
+function printDocShell(title, bodyHtml){
+  return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    @page{ size: A4 landscape; margin:8mm; }
+    *{ box-sizing:border-box; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    html,body{ width:100%; font-size:9px; }
+    body{font-family:'Tajawal',Arial,sans-serif;padding:0;color:#1b2330;}
+    h1{background:#0f3d3e;color:#fff;padding:7px 12px;border-radius:6px;font-size:13px;margin:0 0 8px;}
+    table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:4px;}
+    table,th,td{border:1px solid #aaa !important;}
+    th,td{
+      padding:4px 3px;text-align:right;vertical-align:top;
+      font-size:8.5px;line-height:1.35;
+      word-break:break-word;overflow-wrap:break-word;
+      white-space:pre-wrap;hyphens:auto;
+    }
+    th{background:#d4ede5;font-weight:800;color:#0f3d3e;}
+    tbody tr:nth-child(even){background:#f8faf9;}
+    tr{page-break-inside:avoid;}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:8px 0;}
+    .stat{background:#f6f3ec;border:1px solid #ddd;border-radius:5px;padding:5px;text-align:center;}
+    .lbl{font-weight:700;color:#7a8291;font-size:7.5px;margin-bottom:1px;}
+    .val,.num{font-size:9.5px;font-weight:700;font-family:'JetBrains Mono',monospace;direction:ltr;unicode-bidi:bidi-override;}
+    .money-usd{display:block;font-weight:700;}
+    .money-syp{display:block;font-size:7.5px;color:#7a8291;}
+    /* حالة السداد — نص فقط بدون خلفية في الطباعة */
+    span[style*="background:#e3f5e8"],span[style*="background:#fff6d8"],span[style*="background:#fbe9e7"]{
+      background:none !important;padding:0 !important;font-size:8px !important;
+    }
+    .hint,.no-print{display:none !important;}
+  </style></head><body onload="window.focus()">${bodyHtml}</body></html>`;
+}
+
+/* Shared column-width profile — landscape A4, 12 columns */
+const PRINT_COLGROUP = `
+  <colgroup>
+    <col style="width:7%">   <!-- التاريخ -->
+    <col style="width:9%">   <!-- الوجهة -->
+    <col style="width:8%">   <!-- نوع العمل -->
+    <col style="width:6%">   <!-- الآلية -->
+    <col style="width:8%">   <!-- العمولة -->
+    <col style="width:8%">   <!-- المصروف -->
+    <col style="width:11%">  <!-- الأعطال -->
+    <col style="width:8%">   <!-- صافي مربح الفاتورة -->
+    <col style="width:8%">   <!-- نصيب السائق -->
+    <col style="width:8%">   <!-- حصة الشركة والمعلم -->
+    <col style="width:8%">   <!-- حالة السداد -->
+    <col style="width:11%">  <!-- ملاحظات -->
+  </colgroup>`;
+
+const INVOICE_COLGROUP = PRINT_COLGROUP;
+
+function openPrintWindow(html){
+  const w = window.open('', '_blank');
+  if(!w){
+    showToast('⚠️ الرجاء السماح بالنوافذ المنبثقة لهذا الموقع لتفعيل الطباعة');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  const doPrint = ()=>{ try{ w.focus(); w.print(); }catch(e){} };
+  if(w.document.readyState === 'complete'){
+    setTimeout(doPrint, 400);
+  }else{
+    w.addEventListener('load', ()=>setTimeout(doPrint, 400));
+    setTimeout(doPrint, 900); // fallback
+  }
+}
+
+function buildInvoiceHTML(record){
+  const malfHtml = (record.malfunctions||[]).length
+    ? record.malfunctions.map(m=>`${escapeHtml(m.desc)} (${fmtCell(m.value)}) [${typeLabel(m.type)}]`).join('<br>')
+    : '—';
+
+  const rs = computeRecordStats(record);
+
+  const body = `
+    <h1>بطاقة سائق — فاتورة رحلة</h1>
+    <p style="font-size:15px;font-weight:800;color:#0f3d3e;margin:0 0 10px;">السائق: ${escapeHtml(record.driver)}</p>
+    <table>
+      ${INVOICE_COLGROUP}
+      <thead><tr>
+        <th>التاريخ</th><th>الوجهة</th><th>نوع العمل</th><th>الآلية</th><th>العمولة</th><th>المصروف</th><th>الأعطال</th>
+        <th>صافي مربح الفاتورة</th><th>نصيب السائق</th><th>حصة الشركة والمعلم</th><th>حالة السداد</th><th>ملاحظات</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(record.date)}</td>
+          <td>${escapeHtml(record.from||'—')}${record.to?' ← '+escapeHtml(record.to):''}</td>
+          <td>${escapeHtml(record.workType||'—')}</td>
+          <td>${escapeHtml(record.vehicle||'—')}</td>
+          <td>${fmtCell(record.commission)}</td>
+          <td>${escapeHtml(record.expenseDesc||'—')} ${fmtCell(record.expenseValue)}</td>
+          <td>${malfHtml}</td>
+          <td>${fmtCell(rs.invoiceNet)}</td>
+          <td>${fmtCell(rs.driverShare)}</td>
+          <td>${fmtCell(rs.companyShare)}</td>
+          <td>${settlementBadge(record, rs.driverShare)}</td>
+          <td>${escapeHtml(record.notes||'—')}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  return printDocShell('فاتورة - ' + record.driver + ' - ' + record.date, body);
+}
+
+function printSingleRecord(id){
+  const r = records.find(x=>x.id===id);
+  if(!r) return;
+  openPrintWindow(buildInvoiceHTML(r));
+}
+
+function buildDriverArchiveHTML(driver){
+  const list = records.filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
+  const s = computeDriverStats(list);
+  const rows = list.map(r=>{
+    const malf = (r.malfunctions||[]).map(m=>`${escapeHtml(m.desc)} (${fmtCell(m.value)}) [${typeLabel(m.type)}]`).join('<br>') || '—';
+    const rs = computeRecordStats(r);
+    return `<tr>
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.from||'')}${r.to?' ← '+escapeHtml(r.to):''}</td>
+      <td>${escapeHtml(r.workType||'—')}</td>
+      <td>${escapeHtml(r.vehicle||'—')}</td>
+      <td>${fmtCell(r.commission)}</td>
+      <td>${escapeHtml(r.expenseDesc||'')} ${fmtCell(r.expenseValue)}</td>
+      <td>${malf}</td>
+      <td class="num">${fmtCell(rs.invoiceNet)}</td>
+      <td class="num">${fmtCell(rs.driverShare)}</td>
+      <td class="num">${fmtCell(rs.companyShare)}</td>
+      <td>${settlementBadge(r, rs.driverShare)}</td>
+      <td>${escapeHtml(r.notes||'')}</td>
+    </tr>`;
+  }).join('');
+
+  const body = `
+    <h1>أرشيف السائق: ${escapeHtml(driver)}</h1>
+    <div class="summary">
+      <div class="stat"><div class="lbl">مجموع العمولة</div><div class="val">${fmtCell(s.totalCommission)}</div></div>
+      <div class="stat"><div class="lbl">مصروف + خفيف (مخصوم)</div><div class="val">${fmtCell(s.totalExpense+s.totalLight)}</div></div>
+      <div class="stat"><div class="lbl">أعطال ثقيلة</div><div class="val">${fmtCell(s.totalHeavy)}</div></div>
+      <div class="stat"><div class="lbl">أخطاء السائق</div><div class="val">${fmtCell(s.totalError)}</div></div>
+      <div class="stat"><div class="lbl">صافي المربح العام</div><div class="val">${fmtCell(s.netForSplit)}</div></div>
+      <div class="stat"><div class="lbl">نصيب السائق النهائي</div><div class="val">${fmtCell(s.driverFinalShare)}</div></div>
+      <div class="stat"><div class="lbl">حصة الشركة والمعلم</div><div class="val">${fmtCell(s.companyShare)}</div></div>
+    </div>
+    <table>
+      ${INVOICE_COLGROUP}
+      <thead><tr>
+        <th>التاريخ</th><th>الوجهة</th><th>نوع العمل</th><th>الآلية</th><th>العمولة</th><th>المصروف</th><th>الأعطال</th>
+        <th>صافي مربح الفاتورة</th><th>نصيب السائق</th><th>حصة الشركة والمعلم</th><th>حالة السداد</th><th>ملاحظات</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  return printDocShell('أرشيف السائق - ' + driver, body);
+}
+
+document.getElementById('print-btn').addEventListener('click', ()=>{
+  if(!currentDriverTab){
+    showToast('⚠️ لا يوجد سائق محدد للطباعة');
+    return;
+  }
+  openPrintWindow(buildDriverArchiveHTML(currentDriverTab));
+});
+
+/* ---------------- Excel / CSV export ---------------- */
+document.getElementById('export-excel-btn').addEventListener('click', ()=>{
+  if(!records || records.length===0){
+    showToast('⚠️ لا توجد سجلات لتصديرها');
+    return;
+  }
+  const headers = [
+    'التاريخ','السائق','من','إلى','نوع العمل','الآلية',
+    'العمولة $','العمولة ل.س','المصروف نوع','المصروف $','المصروف ل.س',
+    'الأعطال','صافي مربح الفاتورة $','صافي مربح الفاتورة ل.س',
+    'نصيب السائق $','نصيب السائق ل.س','حصة الشركة والمعلم $','حصة الشركة والمعلم ل.س',
+    'حالة السداد','المبلغ المدفوع $','المتبقي $','ملاحظات'
+  ];
+  const rows = records.map(r=>{
+    const rs = computeRecordStats(r);
+    const s = r.settlement || {status:'unpaid', paidAmount:0};
+    const statusLabel = s.status==='paid' ? 'مدفوع بالكامل' : (s.status==='partial' ? 'سداد جزئي' : 'غير مدفوع');
+    const remaining = s.status==='partial' ? (rs.driverShare - (s.paidAmount||0)) : '';
+    const malfText = (r.malfunctions||[]).map(m=>m.desc+' ('+m.value.toFixed(2)+'$ / '+typeLabel(m.type)+')').join(' | ');
+    const sypOf = n => exchangeRate>0 ? Math.round(n*exchangeRate) : '';
+    return [
+      r.date, r.driver, r.from||'', r.to||'', r.workType||'', r.vehicle||'',
+      r.commission.toFixed(2), sypOf(r.commission),
+      r.expenseDesc||'', r.expenseValue.toFixed(2), sypOf(r.expenseValue),
+      malfText,
+      rs.invoiceNet.toFixed(2), sypOf(rs.invoiceNet),
+      rs.driverShare.toFixed(2), sypOf(rs.driverShare),
+      rs.companyShare.toFixed(2), sypOf(rs.companyShare),
+      statusLabel, (s.paidAmount||0).toFixed(2), (remaining!==''?remaining.toFixed(2):''),
+      r.notes||''
+    ];
+  });
+  const escapeCsv = v => {
+    const str = String(v ?? '');
+    return /[",\n]/.test(str) ? '"' + str.replace(/"/g,'""') + '"' : str;
+  };
+  const csvLines = [headers.map(escapeCsv).join(',')].concat(rows.map(row=>row.map(escapeCsv).join(',')));
+  const csvContent = '\uFEFF' + csvLines.join('\r\n'); // BOM لضمان ظهور العربية صحيحة في Excel
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'أرشيف-سجل-السائقين-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('📊 تم تصدير الأرشيف كامل كملف Excel — يفتح مباشرة ببرنامج Excel أو Google Sheets');
+});
+
+/* ---------------- Backup export / import (manual Google Drive save) ---------------- */
+document.getElementById('export-backup-btn').addEventListener('click', async ()=>{
+  const payload = {syncCode: (cloudConfig && cloudConfig.channelCode) || null, exportedAt: new Date().toISOString(), records};
+  const data = JSON.stringify(payload, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'نسخة-احتياطية-سجل-السائقين-' + dateStr + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  await storageSet(LAST_BACKUP_KEY, String(Date.now()));
+  showToast('💾 تم تنزيل النسخة الاحتياطية — احفظها في Google Drive يدويًا، أو أرسلها لي لأرفعها لك');
+});
+
+document.getElementById('import-backup-btn').addEventListener('click', ()=>{
+  document.getElementById('import-backup-file').click();
+});
+
+document.getElementById('import-backup-file').addEventListener('change', async (ev)=>{
+  const file = ev.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    // يدعم صيغتين: نسخة قديمة (مصفوفة مباشرة) أو نسخة جديدة فيها رمز مزامنة
+    let imported, backupCode = null;
+    if(Array.isArray(parsed)){
+      imported = parsed;
+    } else if(parsed && Array.isArray(parsed.records)){
+      imported = parsed.records;
+      backupCode = parsed.syncCode || null;
+    } else {
+      throw new Error('bad format');
+    }
+    const currentChannel = cloudConfig && cloudConfig.channelCode;
+    if(currentChannel && backupCode && backupCode !== currentChannel){
+      const proceed = confirm(
+        '⚠️ تنبيه: هذه النسخة الاحتياطية من قناة مختلفة (' + backupCode + ') عن قناتك الحالية (' + currentChannel + ').\n' +
+        'قد تكون بيانات مستخدم آخر غير مرتبط بمجموعتك. هل تريد المتابعة والاستيراد رغم ذلك؟'
+      );
+      if(!proceed){ ev.target.value=''; return; }
+    }
+    if(!confirm('سيتم استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية (' + imported.length + ' سجل). هل تريد المتابعة؟')) {
+      ev.target.value=''; return;
+    }
+    records = imported;
+    await saveRecords();
+    refreshDatalists();
+    renderArchive();
+    showToast('✅ تم استيراد النسخة الاحتياطية بنجاح');
+  }catch(e){
+    showToast('⚠️ ملف النسخة الاحتياطية غير صالح');
+  }
+  ev.target.value='';
+});
+
+// حذف كل الأرشيف المحفوظ على هذا الجهاز فقط (لا يمس القناة السحابية ولا أي جهاز آخر متصل بها).
+// مفيد قبل توزيع نسخة نظيفة، أو لبدء اختبار جديد بدون بيانات قديمة على نفس الحاسوب.
+document.getElementById('wipe-local-btn').addEventListener('click', async ()=>{
+  if(records.length===0){
+    showToast('الأرشيف فارغ بالفعل على هذا الجهاز');
+    return;
+  }
+  if(!confirm('سيتم حذف كل السجلات المحفوظة على هذا الجهاز فقط نهائيًا (' + records.length + ' سجل). هذا الإجراء لا رجعة عنه ولا يؤثر على أي جهاز آخر متصل بنفس قناة المزامنة. يُستحسن أخذ نسخة احتياطية أولاً. هل تريد المتابعة؟')){
+    return;
+  }
+  if(!confirm('تأكيد أخير: سيُمسح الأرشيف المحلي نهائيًا من هذا الجهاز. متأكد؟')){
+    return;
+  }
+  records = [];
+  await saveRecords();
+  refreshDatalists();
+  currentDriverTab = null;
+  renderArchive();
+  showToast('🗑️ تم حذف كل الأرشيف من هذا الجهاز');
+});
+
+/* ---------------- Search ---------------- */
+document.getElementById('search-input').addEventListener('input', (e)=>{
+  renderSearch(e.target.value.trim());
+});
+
+function highlight(text, q){
+  if(!q) return escapeHtml(text||'');
+  const t = escapeHtml(text||'');
+  try{
+    const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    return t.replace(re, '<mark>$1</mark>');
+  }catch(e){ return t; }
+}
+
+function renderSearch(q){
+  const el = document.getElementById('search-results');
+  if(!q){
+    el.innerHTML = '<div class="empty">اكتب أي كلمة للبحث في جميع السجلات المؤرشفة (اسم سائق، وجهة، عطل، ملاحظة...)</div>';
+    return;
+  }
+  const ql = q.toLowerCase();
+  const matches = records.filter(r=>{
+    const haystack = [
+      r.date, r.driver, r.vehicle, r.from, r.to, r.workType,
+      String(r.commission), r.expenseDesc, String(r.expenseValue), r.notes,
+      ...(r.malfunctions||[]).map(m=>m.desc+' '+m.value)
+    ].join(' ').toLowerCase();
+    return haystack.includes(ql);
+  }).sort((a,b)=>(a.date<b.date?1:-1));
+
+  if(matches.length===0){
+    el.innerHTML = '<div class="empty">لا توجد نتائج مطابقة لـ "'+escapeHtml(q)+'"</div>';
+    return;
+  }
+
+  el.innerHTML = `<p class="hint">${matches.length} نتيجة</p>` + `
+    <div class="tbl-wrap" style="padding:0;">
+      <table>
+        <thead><tr><th>التاريخ</th><th>السائق</th><th>الوجهة</th><th>نوع العمل</th><th>العمولة</th><th>المصروف</th><th>الأعطال</th><th>ملاحظات</th></tr></thead>
+        <tbody>
+          ${matches.map(r=>`
+            <tr>
+              <td>${highlight(r.date,q)}</td>
+              <td>${highlight(r.driver,q)}</td>
+              <td>${highlight((r.from||'')+(r.to?' ← '+r.to:''),q)}</td>
+              <td>${highlight(r.workType,q)}</td>
+              <td class="num">${fmtCell(r.commission)}</td>
+              <td>${highlight(r.expenseDesc,q)} <span class="num">${fmtCell(r.expenseValue)}</span></td>
+              <td>${(r.malfunctions||[]).map(m=>highlight(m.desc,q)+' <span class="num">('+fmtCell(m.value)+')</span> '+malfTag(m.type)).join('<br>') || '—'}</td>
+              <td>${highlight(r.notes,q)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------- Init ---------------- */
+loadRecords();
+loadExchangeRate();
+loadProfitSettings();
+window.addEventListener('load', () => { loadCloudConfig(); });
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+
+
+/* ---------------- Security: DevTools deterrent ---------------- */
+(function(){
+  const block = ()=>{
+    // Only warn, don't break the app for legitimate use
+    console.clear();
+    console.log('%c⛔ تنبيه أمني', 'color:#b8443a;font-size:22px;font-weight:900;');
+    console.log('%cهذا التطبيق محمي. أي محاولة لتعديل الكود أو البيانات مسؤوليتك القانونية.', 'color:#0f3d3e;font-size:14px;');
+  };
+  setInterval(()=>{ if(window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 160){ block(); } }, 1000);
+  document.addEventListener('keydown', e=>{
+    if(e.key==='F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && e.key==='U')){
+      e.preventDefault(); block();
+    }
+  });
+  document.addEventListener('contextmenu', e=>e.preventDefault());
+})();
+</script>
+</body>
+</html>
