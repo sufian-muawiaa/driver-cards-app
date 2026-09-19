@@ -15,8 +15,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></noscript>
-<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Font fallback for regions where Google Fonts may be blocked -->
+<style>
+  @font-face { font-family: 'Tajawal'; src: local('Tajawal'), local('Noto Sans Arabic'), local('Segoe UI'), local('Arial'); font-display: swap; }
+  @font-face { font-family: 'JetBrains Mono'; src: local('JetBrains Mono'), local('Courier New'), local('monospace'); font-display: swap; }
+</style>
+<!-- Firebase: deferred with graceful fallback -->
+<script>
+  window._firebaseLoaded = false;
+  function onFirebaseLoad(){ window._firebaseLoaded = true; }
+</script>
+<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" onload="onFirebaseLoad()" onerror="console.warn('Firebase CDN unreachable — app will work locally only')"></script>
+<script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" onerror="console.warn('Firestore CDN unreachable — app will work locally only')"></script>
 <style>
   :root{
     --ink:#1c2321;
@@ -100,15 +110,6 @@
     cursor:pointer; transition:.15s; white-space:nowrap;
   }
   #exchange-rate-btn:hover{background:rgba(255,255,255,.16);}
-  #profit-settings-btn{
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.15);
-    color:#fff; padding:10px 16px; border-radius:8px;
-    font-family:'Tajawal',sans-serif; font-weight:700; font-size:13px;
-    cursor:pointer; transition:.15s; white-space:nowrap;
-  }
-  #profit-settings-btn:hover{background:rgba(255,255,255,.16);}
-  #profit-settings-btn.active{background:var(--amber); color:var(--steel); border-color:var(--amber);}
   #exchange-rate-btn.set{background:var(--amber); color:var(--steel); border-color:var(--amber);}
 
   main{max-width:1180px; margin:26px auto 60px; padding:0 20px;}
@@ -333,8 +334,7 @@
       <button data-view="search">🔍 بحث</button>
     </div>
     <button id="sync-code-btn" title="الاتصال والمزامنة اللحظية بين الأجهزة">☁️ <span id="sync-code-badge">الاتصال والمزامنة</span></button>
-    <button id="exchange-rate-btn" title="سعر صرف الليرة السورية مقابل الدولار">💱 <span id="exchange-rate-badge">تعيين سعر الصرف</span></button>
-    <button id="profit-settings-btn" title="نسب توزيع الأرباح بين السائق والشركة والمعلم">⚙️ توزيع الأرباح</button>
+    <button id="exchange-rate-btn" title="سعر صرف الليرة مقابل الدولار">💱 <span id="exchange-rate-badge">تعيين سعر الصرف</span></button>
   </div>
 </div>
 
@@ -346,6 +346,23 @@
       <button class="close-x" onclick="closeSheet('cloudOverlay')">✕</button>
     </div>
     <p class="helper-text">تربط هذا الجهاز بقناة مزامنة لحظية مع بقية الأجهزة. اختر رمز القناة وصفتك، واضغط حفظ.</p>
+
+    <details style="margin-bottom:12px; font-size:12px; color:var(--muted);">
+      <summary style="cursor:pointer; font-weight:700; color:var(--steel);">⚠️ تعذر الاتصال؟ تعليمات Firestore Security Rules</summary>
+      <p style="line-height:1.8; margin-top:6px;">لو ظهرت أخطاء "Missing or insufficient permissions" فذلك يعني أن Firestore Security Rules على الوضع المقفول (locked mode). الحل:<br>
+      1. افتح <strong>Firebase Console</strong> ← مشروع <code>saeekeen-62354</code> ← <strong>Firestore Database</strong> ← <strong>Rules</strong><br>
+      2. استبدل القواعد بما يلي:<br>
+      <code style="display:block; background:#f4f1e8; padding:8px; border-radius:6px; direction:ltr; text-align:left; margin:6px 0; white-space:pre-wrap;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /channels/{channel}/documents/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</code>
+      3. اضغط <strong>Publish</strong> ثم أعد تحميل التطبيق.<br>
+      <em>ملاحظة: هذه القواعد تسمح بالقراءة والكتابة لكل القنوات — تأمّنها لاحقًا بمصادقة المستخدمين عند الحاجة.</em></p>
+    </details>
 
     <div id="cloud-status" class="match-result" style="margin-top:10px;">⚪ غير متصل — يعمل التطبيق محليًا فقط حاليًا</div>
 
@@ -501,7 +518,36 @@
                 <option value="syp">ل.س</option>
               </select>
             </div>
+            <div id="settlement-direction-wrap" style="margin-top:10px; display:none;">
+              <label style="font-weight:600; margin-bottom:4px;">🔄 من يدفع لمن؟</label>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer; padding:6px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px;">
+                  <input type="radio" name="f-settlement-direction" id="f-settlement-dir-driver" value="driver-to-company" checked onchange="updateSettlementHint()">
+                  <span>🔵 السائق يدفع للشركة والمعلم</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer; padding:6px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px;">
+                  <input type="radio" name="f-settlement-direction" id="f-settlement-dir-company" value="company-to-driver" onchange="updateSettlementHint()">
+                  <span>🟢 الشركة تدفع للسائق والمعلم</span>
+                </label>
+              </div>
+              <p class="hint" style="margin-top:4px; font-size:11px;">يُحدد من جمع الفلوس ومن عليه الباقي</p>
+            </div>
+            <div id="settlement-deduct-wrap" style="margin-top:10px; display:none;">
+              <label style="font-weight:600; margin-bottom:4px;">🧮 المبلغ المتبقي: على مَن يُحسب؟</label>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer; padding:6px 12px; border-radius:8px; border:1px solid var(--line); font-size:13px;">
+                  <input type="radio" name="f-settlement-deduct" id="f-settlement-deduct-driver" value="driver" checked onchange="updateSettlementHint()">
+                  <span>🔵 يبقى ديناً على السائق (افتراضي)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer; padding:6px 12px; border-radius:8px; border:1px solid var(--line); font-size:13px;">
+                  <input type="radio" name="f-settlement-deduct" id="f-settlement-deduct-company" value="company" onchange="updateSettlementHint()">
+                  <span>🟢 يُخصَم من حصة الشركة والمعلم</span>
+                </label>
+              </div>
+              <p class="hint" style="margin-top:4px; font-size:11px;">الافتراضي: الباقي دَين يسدّده السائق لاحقاً. البديل: الشركة والمعلم يتحمّلان الباقي فلا يبقى على السائق شيء.</p>
+            </div>
             <p class="hint" id="settlement-hint" style="margin-top:4px;"></p>
+            <p class="hint" id="settlement-remaining-hint" style="margin-top:6px; display:none; font-size:12px; color:var(--muted); line-height:1.7;"></p>
           </div>
         </fieldset>
 
@@ -530,8 +576,8 @@
           <button class="btn btn-steel btn-sm" id="print-btn">🖨️ طباعة كامل الأرشيف / PDF</button>
           <button class="btn btn-ghost btn-sm" id="export-excel-btn" style="background:#fff;">📊 تصدير Excel</button>
           <button class="btn btn-ghost btn-sm" id="export-backup-btn" style="background:#fff;">💾 نسخة احتياطية</button>
+          <button class="btn btn-ghost btn-sm" id="profit-settings-btn" style="background:#fff2d9; color:#7a4a00; border:1px solid #f5c96a;">⚙️ توزيع الأرباح</button>
           <button class="btn btn-ghost btn-sm" id="import-backup-btn" style="background:#fff;">📥 استيراد نسخة</button>
-          <button class="btn btn-danger btn-sm" id="wipe-local-btn">🗑️ حذف كل الأرشيف من هذا الجهاز</button>
           <input type="file" id="import-backup-file" accept="application/json" style="display:none;">
         </div>
       </div>
@@ -576,8 +622,9 @@
 </div>
 
 <div class="no-print" style="text-align:center; padding:14px 10px 24px; font-size:11.5px; color:var(--muted); opacity:.75;">
-  الإصدار 2.0 — بناء 2026/07/31<br>
-  Abu sufian
+  الإصدار 2.3 — بناء 2026/09/19<br>
+  Abu sufian<br>
+  <button onclick="clearAllCache()" style="margin-top:8px;background:var(--steel);color:#fff;border:1px solid var(--amber);padding:6px 14px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer;">🗑️ مسح الكاش وإعادة التحميل</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -606,8 +653,7 @@ const HAS_CLOUD_STORAGE = (typeof window.storage !== 'undefined');
 // يعمل بطريقتين: داخل معاينة Claude يستخدم التخزين السحابي المدمج،
 // وعند تحميل الملف وفتحه مباشرة في أي متصفح أو تطبيق (بدون إنترنت)
 // يستخدم تلقائيًا التخزين المحلي في نفس الجهاز — هذا ما يضمن بقاء
-// البيانات محفوظة نهائيًا حتى بعد إغلاق التطبيق بالكامل، وأن أي جهاز
-// جديد يبدأ فارغًا تمامًا لأن كل جهاز له مخزون localStorage خاص به.
+// البيانات محفوظة نهائيًا حتى بعد إغلاق التطبيق بالكامل.
 async function storageGet(key){
   if(HAS_CLOUD_STORAGE){
     try{
@@ -617,17 +663,11 @@ async function storageGet(key){
   }
   try{ return localStorage.getItem(key); }catch(e){ return null; }
 }
-// يرجع true/false لنعرف بشكل مؤكد إن كان الحفظ نجح فعليًا أم لا،
-// بدل الاكتفاء بتسجيل الخطأ بصمت بالـ console (حيث لن يراه المستخدم أبدًا)
 async function storageSet(key, value){
   if(HAS_CLOUD_STORAGE){
-    try{ await window.storage.set(key, value, false); return true; }
-    catch(e){ console.error(e); return false; }
-  }
-  try{ localStorage.setItem(key, value); return true; }
-  catch(e){
-    console.error(e);
-    return false;
+    try{ await window.storage.set(key, value, false); }catch(e){ console.error(e); }
+  } else {
+    try{ localStorage.setItem(key, value); }catch(e){ console.error(e); }
   }
 }
 
@@ -636,34 +676,14 @@ const LAST_BACKUP_REMINDER_KEY = 'last_backup_reminder_v1';
 
 async function loadRecords(){
   const raw = await storageGet(STORAGE_KEY);
-  if(!raw){
-    records = [];
-  } else {
-    try{
-      records = JSON.parse(raw);
-      if(!Array.isArray(records)) records = [];
-    }catch(e){
-      // بيانات تالفة بدل مسحها بصمت: نحتفظ بنسخة منها تحت مفتاح طوارئ
-      // ونُنبّه المستخدم بدل فقدان الأرشيف دون علمه
-      console.error('Corrupted records data, keeping raw backup', e);
-      await storageSet(STORAGE_KEY + '_corrupted_backup_' + Date.now(), raw);
-      records = [];
-      setTimeout(()=>{
-        showToast('⚠️ تعذّرت قراءة الأرشيف المحفوظ — تم حفظ نسخة خام منه، تواصل مع الدعم');
-      }, 1200);
-    }
-  }
+  records = raw ? JSON.parse(raw) : [];
   refreshDatalists();
   renderArchive();
   checkBackupReminder();
 }
 
 async function saveRecords(){
-  const ok = await storageSet(STORAGE_KEY, JSON.stringify(records));
-  if(!ok){
-    showToast('⚠️ فشل حفظ البيانات على هذا الجهاز! خذ نسخة احتياطية فورًا قبل إغلاق التطبيق');
-  }
-  return ok;
+  await storageSet(STORAGE_KEY, JSON.stringify(records));
 }
 
 // يذكّر بأخذ نسخة احتياطية لو مرّ أكثر من 7 أيام بدون نسخة، بدون إزعاج (مرة كل يوم كحد أقصى)
@@ -730,19 +750,22 @@ function setRoleChoice(role, autoFetch){
   if(role==='driver' && autoFetch!==false) fetchDriversList();
 }
 
-// إعدادات Firebase ثابتة مضمّنة بالتطبيق — لا حاجة لأي مستخدم لإدخالها يدويًا
+// Firebase config — project: saeekeen-62354
 const HARDCODED_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAAF9DVUjhko1jbzZRHlExWLWdQhRBmY0E",
-  projectId: "othman-22a69",
-  authDomain: "othman-22a69.firebaseapp.com"
+  apiKey: "AIzaSyDzeqTLYfRyOzRnmBnQN2rNdLvhNPbaMLI",
+  authDomain: "saeekeen-62354.firebaseapp.com",
+  projectId: "saeekeen-62354",
+  storageBucket: "saeekeen-62354.firebasestorage.app",
+  messagingSenderId: "764097396523",
+  appId: "1:764097396523:web:661d9b0005d28c51674f6e"
 };
 function getConfigFromInputs(){
   return HARDCODED_FIREBASE_CONFIG;
 }
 
 async function getTempFirebaseApp(config){
-  if(!window.firebase){
-    throw new Error('مكتبة Firebase لم تُحمَّل — تأكد من الاتصال بالإنترنت أول مرة فقط');
+  if(!window.firebase || !window.firebase.initializeApp){
+    throw new Error('⚠️ خدمات Firebase غير متاحة حاليًا (قد تكون محجوبة في منطقتك أو لم يتم تحميلها بعد). التطبيق يعمل محليًا فقط — أدخل بياناتك بشكل طبيعي وستُزامن لاحقًا عند توفر الاتصال.');
   }
   const appName = 'temp-' + Date.now();
   const app = firebase.initializeApp(config, appName);
@@ -947,27 +970,13 @@ async function loadCloudConfig(){
   if(cloudConfig) await startCloudSync();
 }
 
-async function migrateLocalRecordsToCloud(channelRef){
-  try{
-    const existingSnap = await channelRef.get({source:'server'}).catch(()=>channelRef.get());
-    const existingIds = new Set(existingSnap.docs.map(d=>d.id));
-    const toMigrate = records.filter(r=>
-      r && r.id && !existingIds.has(r.id) &&
-      (cloudConfig.role==='employer' || r.driver===cloudConfig.driverName)
-    );
-    if(toMigrate.length===0) return;
-    const batch = cloudDb.batch();
-    toMigrate.forEach(r=>{ batch.set(channelRef.doc(r.id), r); });
-    await batch.commit();
-    showToast('☁️ تم رفع ' + toMigrate.length + ' سجل محلي كان محفوظًا على هذا الجهاز إلى القناة السحابية');
-  }catch(e){
-    // لو فشل الرفع (مثلاً بلا إنترنت)، لا نلمس البيانات المحلية إطلاقًا — تبقى محفوظة كما هي
-    console.error('migration to cloud failed, local data kept intact', e);
-  }
-}
-
 async function startCloudSync(){
-  if(!cloudConfig || !window.firebase) return;
+  if(!cloudConfig) return;
+  if(!window.firebase || !window.firebase.initializeApp){
+    console.warn('Firebase unavailable — app will operate locally only');
+    document.getElementById('cloud-status').textContent = '🟠 خدمات Firebase غير متاحة في منطقتك — التطبيق يعمل محليًا فقط (ستُزامن تلقائيًا عند توفر الاتصال)';
+    return;
+  }
   try{
     if(!firebase.apps.find(a=>a.name==='main')){
       firebase.initializeApp(cloudConfig.firebaseConfig, 'main');
@@ -978,11 +987,6 @@ async function startCloudSync(){
 
     const channelRef = cloudDb.collection('channels').doc(cloudConfig.channelCode).collection('records');
     const query = cloudConfig.role==='driver' ? channelRef.where('driver','==',cloudConfig.driverName) : channelRef;
-
-    // حماية من فقدان البيانات: قبل بدء الاستماع اللحظي، نرفع أي سجلات محفوظة محليًا
-    // على هذا الجهاز ولا توجد بعد في القناة السحابية (مثلاً أول اتصال لقناة جديدة/فارغة).
-    // بدون هذه الخطوة، أول استجابة فارغة من Firestore كانت ستمسح بيانات الجهاز المحلية فورًا.
-    await migrateLocalRecordsToCloud(channelRef);
 
     if(cloudUnsub) cloudUnsub();
     cloudUnsub = query.onSnapshot(async (snap)=>{
@@ -995,7 +999,7 @@ async function startCloudSync(){
       applyDriverRoleLock();
     }, (err)=>{
       console.error('cloud sync error', err);
-      document.getElementById('cloud-status').textContent = '🟠 يعمل محليًا حاليًا — سيُعاد الاتصال تلقائيًا عند توفر الإنترنت';
+      document.getElementById('cloud-status').textContent = '🟠 Firestore: تعذر الاتصال — قد تكون الخدمة محجوبة في منطقتك. التطبيق يعمل محليًا وسيُعاد الاتصال تلقائيًا عند التوفّر';
     });
 
     if(cloudConfig.role==='employer'){
@@ -1099,7 +1103,7 @@ function updateExpenseHint(){
   const raw = parseFloat(document.getElementById('f-expval').value) || 0;
   const hintEl = document.getElementById('expense-hint');
   if(currency === 'syp'){
-    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
   } else {
     hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
   }
@@ -1112,7 +1116,7 @@ function updateMalfHint(selectOrInput){
   const raw = parseFloat(row.querySelector('.malf-val').value) || 0;
   const hintEl = row.querySelector('.malf-hint');
   if(currency === 'syp'){
-    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
   } else {
     hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
   }
@@ -1138,6 +1142,11 @@ function clearForm(){
   addMalfRow();
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('f-settlement-status').value = 'unpaid';
+  // إعادة اتجاه الدفع إلى الافتراضي
+  const dirDriver = document.getElementById('f-settlement-dir-driver');
+  if(dirDriver) dirDriver.checked = true;
+  const dedDriver = document.getElementById('f-settlement-deduct-driver');
+  if(dedDriver) dedDriver.checked = true;
   toggleSettlementAmount();
   document.getElementById('f-settlement-paid-currency').value = 'usd';
   updateSettlementHint();
@@ -1156,7 +1165,7 @@ function updateCommissionHint(){
   const hintEl = document.getElementById('commission-hint');
   if(currency === 'syp'){
     if(exchangeRate > 0){
-      hintEl.textContent = raw > 0 ? ('≈ ' + fmt(raw/exchangeRate) + '$ (حسب سعر الصرف الحالي)') : 'أدخل المبلغ بالليرة السورية';
+      hintEl.textContent = raw > 0 ? ('≈ ' + fmt(raw/exchangeRate) + '$ (حسب سعر الصرف الحالي)') : 'أدخل المبلغ بالليرة';
     } else {
       hintEl.textContent = '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة) لإدخال العمولة بالليرة';
     }
@@ -1168,15 +1177,73 @@ document.getElementById('f-commission').addEventListener('input', updateCommissi
 function toggleSettlementAmount(){
   const status = document.getElementById('f-settlement-status').value;
   document.getElementById('settlement-amount-wrap').style.display = status==='partial' ? 'block' : 'none';
+  const dirWrap = document.getElementById('settlement-direction-wrap');
+  if(dirWrap) dirWrap.style.display = (status==='partial' || status==='unpaid') ? 'block' : 'none';
+  const dedWrap = document.getElementById('settlement-deduct-wrap');
+  if(dedWrap) dedWrap.style.display = status==='partial' ? 'block' : 'none';
 }
 function updateSettlementHint(){
   const currency = document.getElementById('f-settlement-paid-currency').value;
   const raw = parseFloat(document.getElementById('f-settlement-paid').value) || 0;
   const hintEl = document.getElementById('settlement-hint');
+  const remainHintEl = document.getElementById('settlement-remaining-hint');
   if(currency === 'syp'){
-    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة السورية') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
+    hintEl.textContent = exchangeRate>0 ? (raw>0 ? ('≈ ' + fmt(raw/exchangeRate) + '$') : 'أدخل المبلغ بالليرة') : '⚠️ يجب تعيين سعر الصرف أولاً (زر 💱 بأعلى الصفحة)';
   } else {
     hintEl.textContent = (exchangeRate>0 && raw>0) ? ('≈ ' + Math.round(raw*exchangeRate).toLocaleString('en-US') + ' ل.س') : '';
+  }
+  // حساب المتبقي للشركة والمعلم
+  const status = document.getElementById('f-settlement-status').value;
+  if(status === 'partial' && remainHintEl){
+    const commission = parseFloat(document.getElementById('f-commission').value) || 0;
+    const expval = parseFloat(document.getElementById('f-expval').value) || 0;
+    const paidUsd = currency === 'syp' ? (exchangeRate>0 ? raw/exchangeRate : 0) : raw;
+    // حساب سريع: نأخذ قيمة الحقول الحالية
+    let lightTotal = 0;
+    document.querySelectorAll('.malf-row').forEach(row=>{
+      const val = parseFloat(row.querySelector('.malf-val')?.value) || 0;
+      const typ = row.querySelector('.malf-type')?.value || 'light';
+      if(typ==='light') lightTotal += val;
+    });
+    const netForSplit = commission - expval - lightTotal;
+    // تقسيم مؤقت بناءً على النسب الحالية
+    const driverPct = profitParties[0] ? profitParties[0].pct : 33.33;
+    const companyPct = 100 - driverPct;
+    const driverRaw = netForSplit * (driverPct/100);
+    const companyRaw = netForSplit * (companyPct/100);
+    // لا نعرف الأعطال الثقيلة والأخطاء هنا بدقة — عرض تقريبي
+    // اتجاه الدفع: من يدفع لمن؟
+    const dirRadio = document.querySelector('input[name="f-settlement-direction"]:checked');
+    const direction = dirRadio ? dirRadio.value : 'driver-to-company';
+    const dedRadio = document.querySelector('input[name="f-settlement-deduct"]:checked');
+    const deductFrom = dedRadio ? dedRadio.value : 'driver';
+    let remaining, remainLabel, overLabel;
+    if(direction === 'driver-to-company'){
+      // السائق يدفع للشركة والمعلم
+      remaining = companyRaw - paidUsd;
+      remainLabel = '📋 الباقي على السائق للشركة والمعلم';
+      overLabel = '🔄 الشركة والمعلم تدفع للسائق';
+    } else {
+      // الشركة تدفع للسائق والمعلم
+      remaining = driverRaw - paidUsd;
+      remainLabel = '📋 الباقي على الشركة للسائق والمعلم';
+      overLabel = '🔄 السائق والمعلم يدفعون للشركة';
+    }
+    if(remaining > 0){
+      remainHintEl.style.display = 'block';
+      if(deductFrom === 'company'){
+        remainHintEl.innerHTML = '🟢 الباقي <strong class="num">' + fmt(remaining) + '$</strong>' + (exchangeRate>0 ? ' (' + Math.round(remaining*exchangeRate).toLocaleString('en-US') + ' ل.س)' : '') + ' يُخصَم من حصة الشركة والمعلم — ✅ لا دَين على السائق<br><span style="font-size:11px;color:var(--muted);">⚠️ تقريبي — الرقم النهائي يُحسب عند الحفظ بعد إدخال الأعطال</span>';
+      } else {
+        remainHintEl.innerHTML = remainLabel + ': <strong class="num">' + fmt(remaining) + '$</strong>' + (exchangeRate>0 ? ' (' + Math.round(remaining*exchangeRate).toLocaleString('en-US') + ' ل.س)' : '') + '<br><span style="font-size:11px;color:var(--muted);">⚠️ تقريبي — الرقم النهائي يحسب عند الحفظ بعد إدخال الأعطال</span>';
+      }
+    } else if(remaining < 0){
+      remainHintEl.style.display = 'block';
+      remainHintEl.innerHTML = overLabel + ': <strong class="num">' + fmt(Math.abs(remaining)) + '$</strong>' + (exchangeRate>0 ? ' (' + Math.round(Math.abs(remaining)*exchangeRate).toLocaleString('en-US') + ' ل.س)' : '');
+    } else {
+      remainHintEl.style.display = 'none';
+    }
+  } else if(remainHintEl){
+    remainHintEl.style.display = 'none';
   }
 }
 document.getElementById('f-settlement-paid').addEventListener('input', updateSettlementHint);
@@ -1219,6 +1286,21 @@ function loadRecordIntoForm(id){
   document.getElementById('f-settlement-status').value = (r.settlement && r.settlement.status) || 'unpaid';
   document.getElementById('f-settlement-paid').value = (r.settlement && r.settlement.paidAmount) || '';
   document.getElementById('f-settlement-paid-currency').value = 'usd';
+  // استعادة اتجاه الدفع
+  const dir = (r.settlement && r.settlement.direction) || 'driver-to-company';
+  const dirDriver = document.getElementById('f-settlement-dir-driver');
+  const dirCompany = document.getElementById('f-settlement-dir-company');
+  if(dirDriver && dirCompany){
+    if(dir === 'company-to-driver'){ dirCompany.checked = true; } else { dirDriver.checked = true; }
+  }
+  // استعادة جهة تحمّل المتبقي
+  const ded = (r.settlement && r.settlement.deductFrom) || 'driver';
+  const dedDriver = document.getElementById('f-settlement-deduct-driver');
+  const dedCompany = document.getElementById('f-settlement-deduct-company');
+  if(dedDriver && dedCompany){
+    if(ded === 'company'){ dedCompany.checked = true; } else { dedDriver.checked = true; }
+  }
+  toggleSettlementAmount();
   updateSettlementHint();
   toggleSettlementAmount();
   document.getElementById('malf-list').innerHTML = '';
@@ -1303,11 +1385,10 @@ document.getElementById('save-record').addEventListener('click', async ()=>{
     expenseValue: expenseUsd,
     malfunctions,
     notes: document.getElementById('f-notes').value.trim(),
-    settlement: {status: settlementStatus, paidAmount: settlementPaid},
+    settlement: {status: settlementStatus, paidAmount: settlementPaid, direction: (function(){ const r = document.querySelector('input[name="f-settlement-direction"]:checked'); return r ? r.value : 'driver-to-company'; })(), deductFrom: (function(){ const d = document.querySelector('input[name="f-settlement-deduct"]:checked'); return d ? d.value : 'driver'; })()},
     createdAt: Date.now()
   };
 
-  const wasEditing = !!editingId;
   if(editingId){
     const idx = records.findIndex(x=>x.id===editingId);
     if(idx>-1){
@@ -1315,16 +1396,13 @@ document.getElementById('save-record').addEventListener('click', async ()=>{
       records[idx] = record;
     }
     editingId = null;
+    showToast('✅ تم تحديث سجل: ' + driver);
   }else{
     records.push(record);
+    showToast('✅ تم الحفظ والترحيل إلى أرشيف: ' + driver);
   }
 
-  const saved = await saveRecords();
-  if(saved){
-    showToast(wasEditing ? ('✅ تم تحديث سجل: ' + driver) : ('✅ تم الحفظ والترحيل إلى أرشيف: ' + driver));
-  }
-  // لو فشل الحفظ، تظهر رسالة التحذير تلقائيًا من داخل saveRecords() نفسها —
-  // لا نعرض رسالة "تم الحفظ" المُطمئنة في هذه الحالة حتى لا يظن المستخدم خطأً أن بياناته آمنة
+  await saveRecords();
   await pushRecordToCloud(record);
   refreshDatalists();
   currentDriverTab = driver;
@@ -1361,14 +1439,14 @@ function updateExchangeRateBadge(){
   }
 }
 document.getElementById('exchange-rate-btn').addEventListener('click', async ()=>{
-  const val = prompt('كم سعر صرف الدولار الواحد بالليرة السورية اليوم؟ (اتركه فارغًا لإخفاء الليرة والاكتفاء بالدولار)', exchangeRate>0?exchangeRate:'');
+  const val = prompt('كم سعر صرف الدولار الواحد بالليرة اليوم؟ (اتركه فارغًا لإخفاء الليرة والاكتفاء بالدولار)', exchangeRate>0?exchangeRate:'');
   if(val===null) return;
   const num = parseFloat(val);
   exchangeRate = (val.trim()==='' || isNaN(num) || num<=0) ? 0 : num;
   await storageSet(EXCHANGE_RATE_KEY, String(exchangeRate));
   updateExchangeRateBadge();
   renderArchive();
-  showToast(exchangeRate>0 ? ('✅ تم تعيين سعر الصرف: 1$ = ' + exchangeRate.toLocaleString('en-US') + ' ل.س') : '✅ تم إخفاء الليرة السورية');
+  showToast(exchangeRate>0 ? ('✅ تم تعيين سعر الصرف: 1$ = ' + exchangeRate.toLocaleString('en-US') + ' ل.س') : '✅ تم إخفاء الليرة');
 });
 
 /* ================= Profit Distribution Settings ================= */
@@ -1464,7 +1542,7 @@ async function resetProfitSettings(){
 function fmt(n){
   return (Math.round(n*100)/100).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
-// عرض مضغوط واحترافي بسطرين: الدولار بالأعلى (بارز) والليرة السورية أسفله (صغيرة وخافتة)
+// عرض مضغوط واحترافي بسطرين: الدولار بالأعلى (بارز) والليرة أسفله (صغيرة وخافتة)
 // يُستخدم داخل خلايا الجداول ومربعات الملخص فقط، حتى لا يتضخم عرض الجدول
 function fmtCell(n){
   const usd = fmt(n);
@@ -1476,16 +1554,57 @@ function fmtCell(n){
 }
 
 // شارة حالة التقابض/السداد مع السائق لعرضها بالجدول والفاتورة
-function settlementBadge(record, driverShare){
-  const s = (record && record.settlement) || {status:'unpaid', paidAmount:0};
+// السداد = السائق يدفع للشركة والمعلم حصتهم
+// المتبقي = حصة الشركة والمعلم - المبلغ المدفوع
+// إذا المتبقي موجب → على ذمة السائق (دين عليه)
+// إذا حصة الشركة سالبة → الشركة تدفع للسائق
+function settlementBadge(record, driverShare, companyShare){
+  const s = (record && record.settlement) || {status:'unpaid', paidAmount:0, direction:'driver-to-company'};
+  const dir = s.direction || 'driver-to-company';
   if(s.status === 'paid'){
+    if(companyShare < 0){
+      return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">✅ مدفوع بالكامل<br><span style="font-size:11px;">🔄 الشركة والمعلم تدفع للسائق ' + fmt(Math.abs(companyShare)) + '$' + (exchangeRate>0?(' ('+Math.round(Math.abs(companyShare)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span></span>';
+    }
     return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">✅ مدفوع بالكامل</span>';
   }
   if(s.status === 'partial'){
-    const remaining = (driverShare||0) - (s.paidAmount||0);
-    return '<span style="background:#fff6d8;color:#8a6d00;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;">🟡 دفع ' + fmt(s.paidAmount||0) + '$' + (exchangeRate>0?(' ('+Math.round((s.paidAmount||0)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '<br>المتبقي ' + fmt(remaining) + '$' + (exchangeRate>0?(' ('+Math.round(remaining*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span>';
+    const paid = s.paidAmount||0;
+    const ded = s.deductFrom || 'driver';
+    let remaining, remainWho, overWho;
+    if(dir === 'driver-to-company'){
+      // السائق يدفع للشركة والمعلم → المتبقي = حصة الشركة - المدفوع
+      remaining = companyShare - paid;
+      remainWho = 'السائق';
+      overWho = 'الشركة والمعلم';
+    } else {
+      // الشركة تدفع للسائق والمعلم → المتبقي = حصة السائق - المدفوع
+      remaining = driverShare - paid;
+      remainWho = 'الشركة';
+      overWho = 'السائق';
+    }
+    if(remaining > 0){
+      if(ded === 'company'){
+        return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;">🟢 دفع ' + fmt(paid) + '$' + (exchangeRate>0?(' ('+Math.round(paid*exchangeRate).toLocaleString('en-US')+' ل.س)'):''  ) + '<br>الباقي ' + fmt(remaining) + '$' + (exchangeRate>0?(' ('+Math.round(remaining*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + ' خُصم من حصة الشركة والمعلم<br><span style="font-size:11px;opacity:0.85;">✅ لا دَين على السائق</span></span>';
+      }
+      return '<span style="background:#fff6d8;color:#8a6d00;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;">🟡 دفع ' + fmt(paid) + '$' + (exchangeRate>0?(' ('+Math.round(paid*exchangeRate).toLocaleString('en-US')+' ل.س)'):''  ) + '<br>المتبقي على ' + remainWho + ' ' + fmt(remaining) + '$' + (exchangeRate>0?(' ('+Math.round(remaining*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '<br><span style="font-size:11px;opacity:0.85;">📋 دين لصالح ' + overWho + '</span></span>';
+    } else if(remaining === 0){
+      return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">✅ مدفوع بالكامل</span>';
+    } else {
+      return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;">🟡 دفع ' + fmt(paid) + '$' + (exchangeRate>0?(' ('+Math.round(paid*exchangeRate).toLocaleString('en-US')+' ل.س)'):''  ) + '<br>🔄 ' + overWho + ' تدفع للطرف الآخر ' + fmt(Math.abs(remaining)) + '$' + (exchangeRate>0?(' ('+Math.round(Math.abs(remaining)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span>';
+    }
   }
-  return '<span style="background:#fbe9e7;color:#b03a2e;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ غير مدفوع</span>';
+  // غير مدفوع
+  if(dir === 'company-to-driver'){
+    if(driverShare < 0){
+      return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ لم يتم السداد بعد<br><span style="font-size:11px;">🔄 السائق يدفع للشركة ' + fmt(Math.abs(driverShare)) + '$' + (exchangeRate>0?(' ('+Math.round(Math.abs(driverShare)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span></span>';
+    }
+    return '<span style="background:#fbe9e7;color:#b03a2e;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ غير مدفوع — على الشركة دفع ' + fmt(driverShare) + '$' + (exchangeRate>0?(' ('+Math.round(driverShare*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + ' للسائق</span>';
+  }
+  // driver-to-company (الافتراضي)
+  if(companyShare < 0){
+    return '<span style="background:#e3f5e8;color:#1e7d3d;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ لم يتم السداد بعد<br><span style="font-size:11px;">🔄 الشركة والمعلم تدفع للسائق ' + fmt(Math.abs(companyShare)) + '$' + (exchangeRate>0?(' ('+Math.round(Math.abs(companyShare)*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + '</span></span>';
+  }
+  return '<span style="background:#fbe9e7;color:#b03a2e;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;">❌ غير مدفوع — على السائق دفع ' + fmt(companyShare) + '$' + (exchangeRate>0?(' ('+Math.round(companyShare*exchangeRate).toLocaleString('en-US')+' ل.س)'):'') + ' للشركة والمعلم</span>';
 }
 
 /* ---------------- Archive rendering ---------------- */
@@ -1511,6 +1630,9 @@ function splitNet(netForSplit, totalHeavy, totalError){
 
 function computeDriverStats(driverRecords){
   let totalCommission=0, totalExpense=0, totalLight=0, totalHeavy=0, totalError=0;
+  // حساب المتبقي الإجمالي من السداد الجزئي
+  let totalPartialRemaining=0;   // دَين متبقٍّ على السائق (deductFrom=driver)
+  let companyAbsorbed=0;         // مبلغ تحمّلته الشركة والمعلم (deductFrom=company)
   driverRecords.forEach(r=>{
     totalCommission += r.commission||0;
     totalExpense += r.expenseValue||0;
@@ -1519,11 +1641,19 @@ function computeDriverStats(driverRecords){
       else if(m.type==='heavy') totalHeavy += m.value;
       else if(m.type==='error') totalError += m.value;
     });
+    const s = (r && r.settlement) || {status:'unpaid', paidAmount:0};
+    if(s.status === 'partial'){
+      const rs = computeRecordStats(r);
+      const dir = s.direction || 'driver-to-company';
+      const remaining = (dir === 'driver-to-company') ? (rs.companyShare - (s.paidAmount||0)) : (rs.driverShare - (s.paidAmount||0));
+      if((s.deductFrom||'driver') === 'company'){ companyAbsorbed += remaining; }
+      else { totalPartialRemaining += remaining; }
+    }
   });
   const netForSplit = totalCommission - totalExpense - totalLight;
   const perPartner = netForSplit / Math.max(profitParties.length, 1);
   const {driverFinalShare, companyShare, shares} = splitNet(netForSplit, totalHeavy, totalError);
-  return {totalCommission, totalExpense, totalLight, totalHeavy, totalError, netForSplit, perPartner, driverFinalShare, companyShare, shares};
+  return {totalCommission, totalExpense, totalLight, totalHeavy, totalError, netForSplit, perPartner, driverFinalShare, companyShare, shares, totalPartialRemaining, companyAbsorbed};
 }
 
 function computeRecordStats(record){
@@ -1599,7 +1729,7 @@ function renderDriverContent(driver, contentEl){
       <div class="stat hi"><div class="lbl">نصيب السائق النهائي</div><div class="val num">${fmtCell(s.driverFinalShare)}</div></div>
       <div class="stat hi"><div class="lbl">حصة الشركة والمعلم</div><div class="val num">${fmtCell(s.companyShare)}</div></div>
     </div>
-    <p class="hint" style="padding:6px 22px 0;">توزيع الأرباح: ${profitParties.map(p=>`<strong>${escapeHtml(p.name)}</strong> ${p.pct}%`).join(' + ')} — صافي المربح ${fmt(s.netForSplit)}$ → نصيب السائق <strong class="num">${fmt(s.driverFinalShare)}$</strong> (بعد خصم أخطائه ${fmt(s.totalError)}$) — حصة باقي الأطراف <strong class="num">${fmt(s.companyShare)}$</strong> (بعد خصم الأعطال الثقيلة ${fmt(s.totalHeavy)}$)</p>
+    <p class="hint" style="padding:6px 22px 0;">توزيع الأرباح: ${profitParties.map(p=>`<strong>${escapeHtml(p.name)}</strong> ${p.pct}%`).join(' + ')} — صافي المربح ${fmt(s.netForSplit)}$ → نصيب السائق <strong class="num">${fmt(s.driverFinalShare)}$</strong> (بعد خصم أخطائه ${fmt(s.totalError)}$) — حصة باقي الأطراف <strong class="num">${fmt(s.companyShare)}$</strong> (بعد خصم الأعطال الثقيلة ${fmt(s.totalHeavy)}$)${s.totalPartialRemaining>0 ? '<br>📋 المتبقي من السداد الجزئي (دَين على السائق): <strong class="num">' + fmt(s.totalPartialRemaining) + '$</strong>' : (s.totalPartialRemaining<0 ? '<br>🔄 فائض السداد الجزئي: <strong class="num">' + fmt(Math.abs(s.totalPartialRemaining)) + '$</strong>' : '')}${s.companyAbsorbed>0 ? '<br>🟢 مبلغ تحمّلته الشركة والمعلم (مخصوم من حصتهما): <strong class="num">' + fmt(s.companyAbsorbed) + '$</strong> — حصتهما الفعلية بعد التحمّل: <strong class="num">' + fmt(s.companyShare - s.companyAbsorbed) + '$</strong>' : ''}</p>
   `;
 
   if(list.length===0){
@@ -1624,7 +1754,7 @@ function renderDriverContent(driver, contentEl){
         <td class="num">${fmtCell(rs.invoiceNet)}</td>
         <td class="num">${fmtCell(rs.driverShare)}</td>
         <td class="num">${fmtCell(rs.companyShare)}</td>
-        <td>${settlementBadge(r, rs.driverShare)}</td>
+        <td>${settlementBadge(r, rs.driverShare, rs.companyShare)}</td>
         <td>${escapeHtml(r.notes||'')}</td>
         <td class="no-print row-actions">
           <button class="btn btn-steel btn-sm" onclick="loadRecordIntoForm('${r.id}')">✏️ تعديل</button>
@@ -1675,6 +1805,8 @@ function printDocShell(title, bodyHtml){
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
+    @font-face { font-family: 'Tajawal'; src: local('Tajawal'), local('Noto Sans Arabic'), local('Segoe UI'), local('Arial'); font-display: swap; }
+    @font-face { font-family: 'JetBrains Mono'; src: local('JetBrains Mono'), local('Courier New'), local('monospace'); font-display: swap; }
     @page{ size: A4 landscape; margin:8mm; }
     *{ box-sizing:border-box; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     html,body{ width:100%; font-size:9px; }
@@ -1724,22 +1856,29 @@ const PRINT_COLGROUP = `
 
 const INVOICE_COLGROUP = PRINT_COLGROUP;
 
-function openPrintWindow(html){
-  const w = window.open('', '_blank');
-  if(!w){
-    showToast('⚠️ الرجاء السماح بالنوافذ المنبثقة لهذا الموقع لتفعيل الطباعة');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  const doPrint = ()=>{ try{ w.focus(); w.print(); }catch(e){} };
-  if(w.document.readyState === 'complete'){
-    setTimeout(doPrint, 400);
-  }else{
-    w.addEventListener('load', ()=>setTimeout(doPrint, 400));
-    setTimeout(doPrint, 900); // fallback
-  }
+function openPrintWindow(html, filename){
+  // محاولة 1: فتح نافذة طباعة (شغّال بالمتصفحات العادية)
+  try{
+    const w = window.open('', '_blank');
+    if(w && !w.closed){
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      const doPrint = ()=>{ try{ w.focus(); w.print(); }catch(e){} };
+      if(w.document.readyState==='complete') setTimeout(doPrint,400);
+      else { w.addEventListener('load',()=>setTimeout(doPrint,400)); setTimeout(doPrint,900); }
+      return;
+    }
+  }catch(e){}
+  // محاولة 2: تحميل مباشر كملف HTML (يعمل بالتطبيقات وحين تكون النوافذ محجوبة)
+  const fname = (filename||'فاتورة') + '.html';
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('📄 تم تنزيل الفاتورة كملف HTML — افتحه بأي متصفح للطباعة أو حفظه PDF');
 }
 
 function buildInvoiceHTML(record){
@@ -1770,7 +1909,7 @@ function buildInvoiceHTML(record){
           <td>${fmtCell(rs.invoiceNet)}</td>
           <td>${fmtCell(rs.driverShare)}</td>
           <td>${fmtCell(rs.companyShare)}</td>
-          <td>${settlementBadge(record, rs.driverShare)}</td>
+          <td>${settlementBadge(record, rs.driverShare, rs.companyShare)}</td>
           <td>${escapeHtml(record.notes||'—')}</td>
         </tr>
       </tbody>
@@ -1782,7 +1921,7 @@ function buildInvoiceHTML(record){
 function printSingleRecord(id){
   const r = records.find(x=>x.id===id);
   if(!r) return;
-  openPrintWindow(buildInvoiceHTML(r));
+  openPrintWindow(buildInvoiceHTML(r), 'فاتورة-' + r.driver + '-' + r.date);
 }
 
 function buildDriverArchiveHTML(driver){
@@ -1802,7 +1941,7 @@ function buildDriverArchiveHTML(driver){
       <td class="num">${fmtCell(rs.invoiceNet)}</td>
       <td class="num">${fmtCell(rs.driverShare)}</td>
       <td class="num">${fmtCell(rs.companyShare)}</td>
-      <td>${settlementBadge(r, rs.driverShare)}</td>
+      <td>${settlementBadge(r, rs.driverShare, rs.companyShare)}</td>
       <td>${escapeHtml(r.notes||'')}</td>
     </tr>`;
   }).join('');
@@ -1835,7 +1974,7 @@ document.getElementById('print-btn').addEventListener('click', ()=>{
     showToast('⚠️ لا يوجد سائق محدد للطباعة');
     return;
   }
-  openPrintWindow(buildDriverArchiveHTML(currentDriverTab));
+  openPrintWindow(buildDriverArchiveHTML(currentDriverTab), 'أرشيف-' + currentDriverTab);
 });
 
 /* ---------------- Excel / CSV export ---------------- */
@@ -1849,13 +1988,19 @@ document.getElementById('export-excel-btn').addEventListener('click', ()=>{
     'العمولة $','العمولة ل.س','المصروف نوع','المصروف $','المصروف ل.س',
     'الأعطال','صافي مربح الفاتورة $','صافي مربح الفاتورة ل.س',
     'نصيب السائق $','نصيب السائق ل.س','حصة الشركة والمعلم $','حصة الشركة والمعلم ل.س',
-    'حالة السداد','المبلغ المدفوع $','المتبقي $','ملاحظات'
+    'حالة السداد','اتجاه الدفع','المبلغ المدفوع $','المتبقي $','جهة تحمّل المتبقي','ملاحظات'
   ];
   const rows = records.map(r=>{
     const rs = computeRecordStats(r);
     const s = r.settlement || {status:'unpaid', paidAmount:0};
     const statusLabel = s.status==='paid' ? 'مدفوع بالكامل' : (s.status==='partial' ? 'سداد جزئي' : 'غير مدفوع');
-    const remaining = s.status==='partial' ? (rs.driverShare - (s.paidAmount||0)) : '';
+    const dirLabel = s.direction==='company-to-driver' ? 'الشركة→السائق' : 'السائق→الشركة';
+    const dedLabel = s.status==='partial' ? ((s.deductFrom||'driver')==='company' ? 'الشركة والمعلم' : 'السائق (دَين)') : '';
+    let remaining = '';
+    if(s.status==='partial'){
+      const dir = s.direction || 'driver-to-company';
+      remaining = (dir === 'driver-to-company') ? (rs.companyShare - (s.paidAmount||0)) : (rs.driverShare - (s.paidAmount||0));
+    }
     const malfText = (r.malfunctions||[]).map(m=>m.desc+' ('+m.value.toFixed(2)+'$ / '+typeLabel(m.type)+')').join(' | ');
     const sypOf = n => exchangeRate>0 ? Math.round(n*exchangeRate) : '';
     return [
@@ -1866,7 +2011,7 @@ document.getElementById('export-excel-btn').addEventListener('click', ()=>{
       rs.invoiceNet.toFixed(2), sypOf(rs.invoiceNet),
       rs.driverShare.toFixed(2), sypOf(rs.driverShare),
       rs.companyShare.toFixed(2), sypOf(rs.companyShare),
-      statusLabel, (s.paidAmount||0).toFixed(2), (remaining!==''?remaining.toFixed(2):''),
+      statusLabel, dirLabel, (s.paidAmount||0).toFixed(2), (remaining!==''?remaining.toFixed(2):''), dedLabel,
       r.notes||''
     ];
   });
@@ -1948,27 +2093,6 @@ document.getElementById('import-backup-file').addEventListener('change', async (
   ev.target.value='';
 });
 
-// حذف كل الأرشيف المحفوظ على هذا الجهاز فقط (لا يمس القناة السحابية ولا أي جهاز آخر متصل بها).
-// مفيد قبل توزيع نسخة نظيفة، أو لبدء اختبار جديد بدون بيانات قديمة على نفس الحاسوب.
-document.getElementById('wipe-local-btn').addEventListener('click', async ()=>{
-  if(records.length===0){
-    showToast('الأرشيف فارغ بالفعل على هذا الجهاز');
-    return;
-  }
-  if(!confirm('سيتم حذف كل السجلات المحفوظة على هذا الجهاز فقط نهائيًا (' + records.length + ' سجل). هذا الإجراء لا رجعة عنه ولا يؤثر على أي جهاز آخر متصل بنفس قناة المزامنة. يُستحسن أخذ نسخة احتياطية أولاً. هل تريد المتابعة؟')){
-    return;
-  }
-  if(!confirm('تأكيد أخير: سيُمسح الأرشيف المحلي نهائيًا من هذا الجهاز. متأكد؟')){
-    return;
-  }
-  records = [];
-  await saveRecords();
-  refreshDatalists();
-  currentDriverTab = null;
-  renderArchive();
-  showToast('🗑️ تم حذف كل الأرشيف من هذا الجهاز');
-});
-
 /* ---------------- Search ---------------- */
 document.getElementById('search-input').addEventListener('input', (e)=>{
   renderSearch(e.target.value.trim());
@@ -2035,8 +2159,35 @@ window.addEventListener('load', () => { loadCloudConfig(); });
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.onupdatefound = () => {
+        const newWorker = reg.installing;
+        newWorker.onstatechange = () => {
+          if(newWorker.state === 'activated'){
+            console.log('New Service Worker activated');
+          }
+        };
+      };
+    }).catch(()=>{});
   });
+}
+
+/* ---------------- Cache Clear ---------------- */
+async function clearAllCache(){
+  try{
+    if('caches' in window){
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n)));
+    }
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+  }catch(e){ console.error('Cache clear error:', e); }
+  showToast('🗑️ تم مسح الكاش — سيُعاد تحميل الصفحة الآن');
+  setTimeout(()=>{ window.location.href = window.location.href; }, 800);
 }
 
 

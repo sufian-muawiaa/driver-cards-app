@@ -1,39 +1,15 @@
 {
   "name": "سجل بطاقات السائقين",
   "short_name": "بطاقات السائقين",
-  "description": "متابعة الرحلات، الأعطال، والمصاريف لبطاقات السائقين",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "any",
   "background_color": "#0a2626",
   "theme_color": "#0f3d3e",
-  "lang": "ar",
+  "orientation": "portrait",
   "dir": "rtl",
+  "lang": "ar",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

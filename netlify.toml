@@ -1,0 +1,28 @@
+# إعدادات نشر موقع سجل بطاقات السائقين على Netlify
+# التطبيق ملفات ساكنة (static) — لا يحتاج خطوة بناء
+
+[build]
+  publish = "."
+  command = ""
+
+# منع تخزين service worker و index في الكاش لضمان وصول آخر تحديث
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# توجيه أي مسار غير موجود إلى الصفحة الرئيسية (PWA single page)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

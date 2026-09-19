@@ -1,21 +1,10 @@
-// كل تحديث حقيقي للتطبيق يتطلب تغيير هذا الرقم (مثلاً v2, v3...)
-// هذا يضمن أن كل الأجهزة تحصل تلقائيًا على أحدث نسخة من الكود
-// عند فتح التطبيق التالي، بدل أن تبقى عالقة على نسخة قديمة مخزّنة.
-const CACHE_VERSION = 'v1';
-const CACHE_NAME = 'driver-cards-' + CACHE_VERSION;
-
-const CORE_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './apple-touch-icon.png'
-];
+/* Service Worker v2.3 — network-first strategy */
+const CACHE_NAME = 'driver-cards-v2.3';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
@@ -23,36 +12,42 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      )
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// شبكة أولًا لملف الصفحة الرئيسية (index.html) — يضمن دائمًا أحدث نسخة من كود التطبيق
-// عند توفر الإنترنت، ويستخدم النسخة المخزّنة فقط عند انقطاع الاتصال.
-// أما الملفات الثابتة (أيقونات) فتُقرأ من الكاش أولًا لأنها لا تتغيّر تقريبًا.
+/* Network-first: try network first, fall back to cache.
+   Ensures fresh content when online, works offline from cache.
+   Google/Firebase CDN requests are passed through (not cached). */
 self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-
-  const isHTML = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
-
-  if (isHTML) {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  // Pass through external CDN requests without caching
+  if (url.hostname.includes('googleapis.com') || 
+      url.hostname.includes('gstatic.com') || 
+      url.hostname.includes('firebaseapp.com') ||
+      url.hostname.includes('google.com')) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
-          return res;
-        })
-        .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+      fetch(event.request).catch(() => new Response('', {status: 503}))
     );
-  } else {
-    event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req))
-    );
+    return;
   }
+  
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          return cached || new Response('Offline', {status: 503});
+        });
+      })
+  );
 });
