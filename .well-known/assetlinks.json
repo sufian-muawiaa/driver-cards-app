@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.netlify.exquisite_genie_1ce220.twa",
+      "sha256_cert_fingerprints": [
+        "79:F0:A9:AE:16:B8:69:7F:B1:DF:13:4B:EA:09:DB:0C:1F:15:1D:D4:F2:3C:FC:EB:48:17:9D:1F:A1:9E:EF:29"
+      ]
+    }
+  }
+]
