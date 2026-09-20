@@ -335,6 +335,7 @@
     </div>
     <button id="sync-code-btn" title="الاتصال والمزامنة اللحظية بين الأجهزة">☁️ <span id="sync-code-badge">الاتصال والمزامنة</span></button>
     <button id="exchange-rate-btn" title="سعر صرف الليرة مقابل الدولار">💱 <span id="exchange-rate-badge">تعيين سعر الصرف</span></button>
+    <button id="about-btn" title="من نحن">ℹ️ من نحن</button>
   </div>
 </div>
 
@@ -355,7 +356,10 @@
       <code style="display:block; background:#f4f1e8; padding:8px; border-radius:6px; direction:ltr; text-align:left; margin:6px 0; white-space:pre-wrap;">rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /channels/{channel}/documents/{document=**} {
+    match /channels/{channelId} {
+      allow read, write: if true;
+    }
+    match /channels/{channelId}/{document=**} {
       allow read, write: if true;
     }
   }
@@ -406,6 +410,28 @@ service cloud.firestore {
     <button class="btn btn-primary" onclick="connectCloudSync()">🔌 حفظ والاتصال</button>
     <button class="btn btn-danger" onclick="disconnectCloudSync()">🔌 قطع الاتصال والعودة للوضع المحلي فقط</button>
     <button class="btn btn-danger" onclick="wipeAllChannelData()">🗑️ حذف كل بيانات هذه القناة نهائيًا (سجلات + سائقين)</button>
+  </div>
+</div>
+
+<!-- ABOUT / من نحن -->
+<div class="overlay" id="aboutOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>ℹ️ من نحن</h2>
+      <button class="close-x" onclick="closeSheet('aboutOverlay')">✕</button>
+    </div>
+    <p class="helper-text">
+      <strong>سجل بطاقات السائقين</strong> تطبيق لإدارة رحلات السائقين وأعطالهم ومصاريفهم، مع مزامنة لحظية بين أجهزة المعلّم والسائقين عبر رمز قناة واحد. يعمل على الهاتف والحاسوب، ويحفظ بياناتك محليًا ويزامنها تلقائيًا عند توفّر الإنترنت.
+    </p>
+    <div style="background:#f4f1e8; border-radius:10px; padding:14px 16px; margin-top:10px; line-height:2;">
+      <div>📇 <strong>التطبيق:</strong> سجل بطاقات السائقين</div>
+      <div>🔖 <strong>الإصدار:</strong> v2.3</div>
+      <div>🔄 <strong>المزامنة:</strong> لحظية عبر السحابة</div>
+    </div>
+    <p style="text-align:center; margin-top:18px; font-weight:700; color:var(--steel); font-size:15px;">
+      تصميم وتطوير: المهندس عثمان حواس إسماعيل
+    </p>
+    <button class="btn btn-primary" onclick="closeSheet('aboutOverlay')">تمام</button>
   </div>
 </div>
 
@@ -721,6 +747,10 @@ let channelDrivers = [];
 function closeSheet(id){
   document.getElementById(id).classList.remove('open');
 }
+
+document.getElementById('about-btn').addEventListener('click', ()=>{
+  document.getElementById('aboutOverlay').classList.add('open');
+});
 
 document.getElementById('sync-code-btn').addEventListener('click', async ()=>{
   document.getElementById('cloudOverlay').classList.add('open');
@@ -1269,6 +1299,10 @@ function loadRecordIntoForm(id){
     showToast('⚠️ لا يمكنك تعديل سجلات سائق آخر');
     return;
   }
+  if(cloudConfig && cloudConfig.role==='driver' && r.locked){
+    showToast('🔒 هذه الفاتورة مثبّتة من المعلّم — لا يمكن تعديلها');
+    return;
+  }
   document.getElementById('f-date').value = r.date || '';
   document.getElementById('f-driver').value = r.driver || '';
   document.getElementById('f-vehicle').value = r.vehicle || '';
@@ -1389,6 +1423,17 @@ document.getElementById('save-record').addEventListener('click', async ()=>{
     createdAt: Date.now()
   };
 
+  // حالة التثبيت (يحددها المعلّم) وحالة التأكيد (يحددها السائق)
+  const _isDriver = !!(cloudConfig && cloudConfig.role==='driver');
+  if(editingId){
+    const _old = records.find(x=>x.id===editingId) || {};
+    record.locked = _old.locked || false;
+  } else {
+    record.locked = false;
+  }
+  // السائق يحفظ الفاتورة كـ"مسودة" حتى يضغط "تأكيد الانتهاء"؛ المعلّم يحفظها مؤكدة مباشرة
+  record.confirmed = _isDriver ? false : true;
+
   if(editingId){
     const idx = records.findIndex(x=>x.id===editingId);
     if(idx>-1){
@@ -1396,10 +1441,10 @@ document.getElementById('save-record').addEventListener('click', async ()=>{
       records[idx] = record;
     }
     editingId = null;
-    showToast('✅ تم تحديث سجل: ' + driver);
+    showToast(_isDriver ? '✏️ تم حفظ المسودة — اضغط "✅ تأكيد الانتهاء" في الأرشيف لإرسالها للمعلّم' : '✅ تم تحديث سجل: ' + driver);
   }else{
     records.push(record);
-    showToast('✅ تم الحفظ والترحيل إلى أرشيف: ' + driver);
+    showToast(_isDriver ? '✏️ حُفظت كمسودة — راجعها ثم اضغط "✅ تأكيد الانتهاء" لإرسالها للمعلّم' : '✅ تم الحفظ والترحيل إلى أرشيف: ' + driver);
   }
 
   await saveRecords();
@@ -1668,8 +1713,15 @@ function computeRecordStats(record){
   return {invoiceNet, driverShare, companyShare};
 }
 
+function viewRecords(){
+  if(!cloudConfig) return records;
+  if(cloudConfig.role==='driver') return records.filter(r=>r.driver===cloudConfig.driverName);
+  // المعلّم لا يرى المسودّات غير المؤكدة
+  return records.filter(r=> r.confirmed !== false);
+}
+
 function renderArchive(){
-  let drivers = [...new Set(records.map(r=>r.driver))];
+  let drivers = [...new Set(viewRecords().map(r=>r.driver))];
   if(cloudConfig && cloudConfig.role==='driver'){
     // السائق يرى أرشيفه فقط مهما كانت البيانات المحلية — خصوصية إضافية بجانب فلترة الاستعلام السحابي
     drivers = drivers.filter(d=>d===cloudConfig.driverName);
@@ -1694,7 +1746,7 @@ function renderArchive(){
   const showTabs = drivers.length > 1;
   tabsEl.style.display = showTabs ? 'flex' : 'none';
   tabsEl.innerHTML = showTabs ? drivers.map(d=>{
-    const count = records.filter(r=>r.driver===d).length;
+    const count = viewRecords().filter(r=>r.driver===d).length;
     return `<button data-driver="${escapeHtml(d)}" class="${d===currentDriverTab?'active':''}">${escapeHtml(d)}<span class="count">${count}</span></button>`;
   }).join('') : '';
 
@@ -1715,8 +1767,42 @@ function malfTag(type){
   return '<span class="tag tag-error">خطأ سائق</span>';
 }
 
+// شارة حالة الفاتورة (مسودة / مثبّتة)
+function statusBadge(r){
+  const isDriver = !!(cloudConfig && cloudConfig.role==='driver');
+  let b = '';
+  if(r.confirmed === false && (isDriver || !cloudConfig)) b += '<br><span class="tag tag-error">✏️ مسودة (غير مؤكدة)</span>';
+  if(r.locked) b += '<br><span class="tag" style="background:#fff3cd;color:#8a6d1b;">📌 مثبّتة</span>';
+  return b;
+}
+
+// أزرار الإجراءات حسب الصفة وحالة الفاتورة
+function recordActions(r){
+  const isDriver = !!(cloudConfig && cloudConfig.role==='driver');
+  const lockedForDriver = isDriver && r.locked;
+  let btns = '';
+  if(isDriver && r.confirmed === false){
+    btns += `<button class="btn btn-sm" style="background:#2e7d32;color:#fff;border-color:#2e7d32;" onclick="confirmRecord('${r.id}')">✅ تأكيد الانتهاء</button>`;
+  }
+  if(!isDriver){
+    btns += r.locked
+      ? `<button class="btn btn-sm" style="background:var(--amber);color:var(--steel);" onclick="toggleLockRecord('${r.id}')" title="إلغاء التثبيت">📌 إلغاء التثبيت</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="toggleLockRecord('${r.id}')" title="تثبيت الفاتورة حتى لا يستطيع السائق حذفها">📌 تثبيت</button>`;
+  }
+  if(!lockedForDriver){
+    btns += `<button class="btn btn-steel btn-sm" onclick="loadRecordIntoForm('${r.id}')">✏️ تعديل</button>`;
+  }
+  btns += `<button class="btn btn-ghost btn-sm" onclick="printSingleRecord('${r.id}')">🖨️ طباعة/PDF</button>`;
+  if(!lockedForDriver){
+    btns += `<button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">حذف</button>`;
+  } else {
+    btns += `<span class="tag" style="background:#eee;color:#8a6d1b;">🔒 مثبّتة من المعلّم</span>`;
+  }
+  return btns;
+}
+
 function renderDriverContent(driver, contentEl){
-  const list = records.filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
+  const list = viewRecords().filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
   const s = computeDriverStats(list);
 
   const summaryHtml = `
@@ -1744,7 +1830,7 @@ function renderDriverContent(driver, contentEl){
     const rs = computeRecordStats(r);
     return `
       <tr>
-        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.date)}${statusBadge(r)}</td>
         <td>${escapeHtml(r.from||'')}${r.to?' ← '+escapeHtml(r.to):''}</td>
         <td>${escapeHtml(r.workType||'—')}</td>
         <td>${escapeHtml(r.vehicle||'—')}</td>
@@ -1756,11 +1842,7 @@ function renderDriverContent(driver, contentEl){
         <td class="num">${fmtCell(rs.companyShare)}</td>
         <td>${settlementBadge(r, rs.driverShare, rs.companyShare)}</td>
         <td>${escapeHtml(r.notes||'')}</td>
-        <td class="no-print row-actions">
-          <button class="btn btn-steel btn-sm" onclick="loadRecordIntoForm('${r.id}')">✏️ تعديل</button>
-          <button class="btn btn-ghost btn-sm" onclick="printSingleRecord('${r.id}')">🖨️ طباعة/PDF</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">حذف</button>
-        </td>
+        <td class="no-print row-actions">${recordActions(r)}</td>
       </tr>`;
   }).join('');
 
@@ -1784,9 +1866,15 @@ function renderDriverContent(driver, contentEl){
 
 async function deleteRecord(id){
   const rec = records.find(r=>r.id===id);
-  if(cloudConfig && cloudConfig.role==='driver' && rec && rec.driver !== cloudConfig.driverName){
-    showToast('⚠️ لا يمكنك حذف سجلات سائق آخر');
-    return;
+  if(cloudConfig && cloudConfig.role==='driver'){
+    if(rec && rec.driver !== cloudConfig.driverName){
+      showToast('⚠️ لا يمكنك حذف سجلات سائق آخر');
+      return;
+    }
+    if(rec && rec.locked){
+      showToast('🔒 هذه الفاتورة مثبّتة من المعلّم — لا يمكن حذفها');
+      return;
+    }
   }
   if(!confirm('هل تريد حذف هذا السجل نهائيًا؟')) return;
   records = records.filter(r=>r.id!==id);
@@ -1794,6 +1882,33 @@ async function deleteRecord(id){
   await deleteRecordFromCloud(id);
   renderArchive();
   showToast('🗑️ تم حذف السجل');
+}
+
+// السائق يؤكد انتهاءه من كتابة الفاتورة — عندها تظهر عند المعلّم
+async function confirmRecord(id){
+  const rec = records.find(r=>r.id===id);
+  if(!rec) return;
+  if(!confirm('تأكيد الانتهاء من كتابة هذه الفاتورة؟ بعد التأكيد ستظهر عند المعلّم. (إذا عدّلتها لاحقًا ستحتاج لإعادة التأكيد)')) return;
+  rec.confirmed = true;
+  await saveRecords();
+  await pushRecordToCloud(rec);
+  renderArchive();
+  showToast('✅ تم تأكيد الفاتورة — أصبحت ظاهرة عند المعلّم');
+}
+
+// المعلّم يثبّت/يلغي تثبيت الفاتورة — المثبّتة لا يستطيع السائق حذفها أو تعديلها
+async function toggleLockRecord(id){
+  if(cloudConfig && cloudConfig.role==='driver'){
+    showToast('⚠️ التثبيت خاص بالمعلّم فقط');
+    return;
+  }
+  const rec = records.find(r=>r.id===id);
+  if(!rec) return;
+  rec.locked = !rec.locked;
+  await saveRecords();
+  await pushRecordToCloud(rec);
+  renderArchive();
+  showToast(rec.locked ? '📌 تم تثبيت الفاتورة — لا يستطيع السائق حذفها أو تعديلها' : '📌 تم إلغاء تثبيت الفاتورة');
 }
 
 function typeLabel(type){
@@ -1925,7 +2040,7 @@ function printSingleRecord(id){
 }
 
 function buildDriverArchiveHTML(driver){
-  const list = records.filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
+  const list = viewRecords().filter(r=>r.driver===driver).sort((a,b)=>(a.date<b.date?1:-1));
   const s = computeDriverStats(list);
   const rows = list.map(r=>{
     const malf = (r.malfunctions||[]).map(m=>`${escapeHtml(m.desc)} (${fmtCell(m.value)}) [${typeLabel(m.type)}]`).join('<br>') || '—';
